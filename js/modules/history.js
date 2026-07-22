@@ -123,26 +123,27 @@ function histRender() {
   
   const kpiEl = document.getElementById('hist-kpi-dashboard');
   if (kpiEl) {
+    kpiEl.style.gridTemplateColumns = 'repeat(6, 1fr)';
     kpiEl.innerHTML = `
-      <div class="stat-card" style="border-left:4px solid var(--burgundy-500);padding:8px 10px;box-shadow:var(--glass-shadow);">
-        <div style="font-size:0.7rem;color:var(--gray-500);font-weight:600;">รวมค่ามือ</div>
-        <div style="font-size:0.95rem;font-weight:700;color:var(--burgundy-800);">฿${formatCurrency(sumService)}</div>
+      <div class="stat-card bg-pastel-pink" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 2;">
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">รวมค่ามือ</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumService)}</div>
       </div>
-      <div class="stat-card" style="border-left:4px solid hsl(270,55%,42%);padding:8px 10px;box-shadow:var(--glass-shadow);">
-        <div style="font-size:0.7rem;color:var(--gray-500);font-weight:600;">อัพเซลส์</div>
-        <div style="font-size:0.95rem;font-weight:700;color:var(--burgundy-800);">฿${formatCurrency(sumUpsell)}</div>
+      <div class="stat-card bg-pastel-purple" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 2;">
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">อัพเซลส์</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumUpsell)}</div>
       </div>
-      <div class="stat-card" style="border-left:4px solid hsl(145,55%,35%);padding:8px 10px;box-shadow:var(--glass-shadow);">
-        <div style="font-size:0.7rem;color:var(--gray-500);font-weight:600;">ขายเพิ่ม</div>
-        <div style="font-size:0.95rem;font-weight:700;color:var(--burgundy-800);">฿${formatCurrency(sumCrosssell)}</div>
+      <div class="stat-card bg-pastel-green" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 2;">
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ขายเพิ่ม</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumCrosssell)}</div>
       </div>
-      <div class="stat-card" style="border-left:4px solid hsl(38,80%,40%);padding:8px 10px;box-shadow:var(--glass-shadow);">
-        <div style="font-size:0.7rem;color:var(--gray-500);font-weight:600;">ขายสินค้า</div>
-        <div style="font-size:0.95rem;font-weight:700;color:var(--burgundy-800);">฿${formatCurrency(sumProduct)}</div>
+      <div class="stat-card bg-pastel-yellow" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 3;">
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ขายสินค้า</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumProduct)}</div>
       </div>
-      <div class="stat-card" style="background:var(--burgundy-50);border:1px solid var(--burgundy-200);padding:8px 10px;box-shadow:var(--glass-shadow);grid-column:1 / -1;">
-        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:700;">รวมทั้งหมด (ที่ได้จริง)</div>
-        <div style="font-size:1.1rem;font-weight:800;color:var(--burgundy-700);">฿${formatCurrency(grandTotal)}</div>
+      <div class="stat-card bg-pastel-blue" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 3;">
+        <div style="font-size:0.8rem;color:var(--burgundy-800);font-weight:700;margin-bottom:2px;">รวมทั้งหมด (ที่ได้จริง)</div>
+        <div style="font-size:1.15rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(grandTotal)}</div>
       </div>
     `;
   }
@@ -324,13 +325,14 @@ function histViewBill(billId) {
           <div class="section-header" style="margin-bottom:10px;"><span class="section-title">ค่ามือ</span></div>
           ${services.map(s => `
             <div class="${s.is_superseded?'superseded':''}" style="display:flex;justify-content:space-between;padding:10px 12px;background:${s.is_superseded?'var(--gray-50)':'var(--white)'};border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:6px;">
-              <div>
-                ${s.is_superseded?'<span class="badge badge-superseded" style="margin-right:6px;">แก้ไขแล้ว</span>':''}
-                <span style="font-size:0.86rem;font-weight:600;">${s.programName||s.programCode||'-'}</span>
-                <div style="font-size:0.75rem;color:var(--gray-400);margin-top:2px;">ลงโดย: ${getUserName(s.createdBy)}</div>
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <div style="font-size:0.7rem;color:var(--gray-500);">ลงโดย: ${getUserName(s.createdBy)}</div>
+                <div>
+                  ${s.is_superseded?'<span class="badge badge-superseded" style="margin-right:6px;">แก้ไขแล้ว</span>':''}
+                  <span style="font-size:0.86rem;font-weight:600;">${s.programName||s.programCode||'-'}</span>
+                </div>
               </div>
-              <div style="text-align:right;">
-                <div style="font-size:0.78rem;color:var(--gray-500);">ยอดเต็ม ฿${formatCurrency(s.price)}</div>
+              <div style="text-align:right; align-self:flex-end;">
                 <div style="font-size:0.9rem;font-weight:700;color:var(--burgundy-700);">ค่ามือ ฿${formatCurrency(s.commission)}</div>
               </div>
             </div>`).join('')}
@@ -341,18 +343,17 @@ function histViewBill(billId) {
           <div class="section-header" style="margin-bottom:10px;"><span class="section-title">ค่าคอมมิชชั่น</span></div>
           ${sales.map(s => `
             <div class="${s.is_superseded?'superseded':''}" style="padding:10px 12px;background:${s.is_superseded?'var(--gray-50)':'var(--white)'};border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:6px;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                <div>
+              <div style="margin-bottom:6px;">
+                <div style="font-size:0.7rem;color:var(--gray-500);margin-bottom:4px;">ลงโดย: ${getUserName(s.createdBy)}</div>
+                <div style="display:flex; align-items:center;">
                   ${s.is_superseded?'<span class="badge badge-superseded" style="margin-right:6px;">แก้ไขแล้ว</span>':''}
                   ${typeBadge(s.type)}
                   <span style="font-size:0.86rem;font-weight:600;margin-left:6px;">${s.newProgram||'-'}</span>
                 </div>
-                <div style="text-align:right;font-size:0.75rem;color:var(--gray-400);">ลงโดย: ${getUserName(s.createdBy)}</div>
               </div>
-              <div style="font-size:0.78rem;color:var(--gray-500);display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;padding:6px;background:var(--gray-50);border-radius:4px;">
-                <div>รูปแบบชำระ: <strong>${s.payType}</strong> ${s.installmentNo?`(งวด ${s.installmentNo})`:''}</div>
-                <div>ยอดลูกค้าจ่ายจริง: <strong>฿${formatCurrency(s.amountPaid)}</strong></div>
-                ${s.oldProgram ? `<div style="grid-column:span 2;">โปรแกรมเดิม: ${s.oldProgram} (฿${formatCurrency(s.oldPrice)})</div>` : ''}
+              <div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:4px;padding:6px;background:var(--gray-50);border-radius:4px;">
+                <div style="margin-bottom:2px;">ยอดลูกค้าจ่ายจริง: <strong>฿${formatCurrency(s.amountPaid)}</strong> ${s.installmentNo?`(งวด ${s.installmentNo})`:''}</div>
+                ${s.oldProgram ? `<div>โปรแกรมเดิม: ${s.oldProgram} (฿${formatCurrency(s.oldPrice)})</div>` : ''}
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;border-top:1px dashed var(--gray-200);padding-top:6px;">
                 <div style="font-size:0.78rem;color:var(--gray-600);">

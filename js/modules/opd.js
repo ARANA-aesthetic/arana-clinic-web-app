@@ -22,7 +22,7 @@
     .ss-input { width:100%; }
     .ss-list {
       display:none; position:absolute; z-index:9999; width:100%;
-      max-height:240px; overflow-y:auto; background:#fff;
+      max-height:360px; overflow-y:auto; background:#fff;
       border:1px solid hsl(220,8%,82%); border-radius:10px;
       box-shadow:0 8px 24px rgba(139,26,58,0.10); margin-top:2px;
     }
@@ -38,12 +38,14 @@
 })();
 
 function buildSS(uid, items, selectedCode, onPickFn, placeholder) {
+  const isProg = uid.toLowerCase().includes('prog');
   const sel = items.find(x => x.code === selectedCode && !x.isHeader);
   let display = '';
   if (sel) {
     if (sel.code === 'walkin' || sel.code === 'manual') display = sel.name;
     else if (sel.code.startsWith('svc:') || sel.code.startsWith('shared:')) display = sel.name;
-    else display = sel.code + ' — ' + sel.name;
+    else if (isProg) display = sel.name;
+    else display = sel.name; // Removed code prefix
   }
   
   const opts = items.map(item => {
@@ -53,10 +55,10 @@ function buildSS(uid, items, selectedCode, onPickFn, placeholder) {
     const name = (item.name||'').replace(/"/g,'&quot;');
     const search = (item.code + ' ' + item.name).toLowerCase();
     
-    const showCode = (item.code !== 'walkin' && item.code !== 'manual' && !item.code.startsWith('svc:') && !item.code.startsWith('shared:'));
+    const showCode = !isProg && (item.code !== 'walkin' && item.code !== 'manual' && !item.code.startsWith('svc:') && !item.code.startsWith('shared:'));
     const codeHtml = showCode ? `<span class="ss-item-code">${item.code}</span>` : '';
     
-    return `<div class="ss-item" data-code="${item.code}" data-text="${search}" onmousedown="ssPick(event,'${uid}','${item.code}','${onPickFn}')">${codeHtml}${name}${item.extra ? ` <span style="color:var(--gray-400);font-size:0.71rem;">(${item.extra})</span>` : ''}</div>`;
+    return `<div class="ss-item" data-code="${item.code}" data-text="${search}" onmousedown="ssPick(event,'${uid}','${item.code}','${onPickFn}')">${codeHtml}${name}</div>`;
   }).join('');
   return `<div class="ss-wrap" id="sswrap-${uid}">
     <input type="text" class="form-input ss-input" id="ssinput-${uid}" value="${display.replace(/"/g,'&quot;')}" placeholder="${placeholder||'พิมพ์เพื่อค้นหา...'}" autocomplete="off" oninput="ssFilter('${uid}')" onfocus="ssOpen(event,'${uid}')" />
@@ -103,9 +105,6 @@ function ssPick(e, uid, code, cbName) {
       if (extraSpan) extraSpan.remove();
       
       label = clone.textContent.trim();
-      if (code !== 'walkin' && code !== 'manual' && !code.startsWith('svc:') && !code.startsWith('shared:')) {
-         label = code + ' — ' + label;
-      }
     }
   });
   const inp = document.getElementById('ssinput-' + uid);
@@ -248,13 +247,13 @@ function renderOPD(container) {
           <p style="font-size:0.8rem;font-weight:600;color:var(--gray-600);margin-bottom:8px;">เลือกประเภทรายการ:</p>
           <div class="sale-type-selector">
             <button class="sale-type-btn upsell" onclick="opdAddSale('upsell')">
-              <i data-lucide="arrow-up-right"></i>อัพเซลส์<span style="font-size:0.72rem;font-weight:400;">ขายเพิ่มจากโปรฯเดิม</span>
+              <i data-lucide="arrow-up-right"></i>อัพเซลส์
             </button>
             <button class="sale-type-btn crosssell" onclick="opdAddSale('crosssell')">
-              <i data-lucide="shuffle"></i>ขายเพิ่ม<span style="font-size:0.72rem;font-weight:400;">โปรฯใหม่ไม่มีเดิม</span>
+              <i data-lucide="shuffle"></i>ขายเพิ่ม
             </button>
             <button class="sale-type-btn product" onclick="opdAddSale('product')">
-              <i data-lucide="package"></i>ขายสินค้า<span style="font-size:0.72rem;font-weight:400;">คอม 5% ตายตัว</span>
+              <i data-lucide="package"></i>ขายสินค้า
             </button>
           </div>
           <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="opdHideTypePicker()">ยกเลิก</button>
@@ -285,7 +284,7 @@ function renderOPD(container) {
     <!-- Section 4: Photos -->
     <div class="opd-section" id="photos-section">
       <div class="opd-section-head" onclick="opdToggleSection('photos-body')">
-        <h3><i data-lucide="camera"></i>ภาพ OPD <span style="color:var(--red-500);font-size:0.75rem;font-weight:400;">(บังคับแนบอย่างน้อย 1 รูป)</span></h3>
+        <h3 style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; white-space:nowrap;"><i data-lucide="camera"></i>ภาพ OPD <span style="color:var(--red-500);font-size:0.75rem;font-weight:400;">(บังคับแนบอย่างน้อย 1 รูป)</span></h3>
         <span class="opd-section-count" id="photos-count">0</span>
         <i data-lucide="chevron-down"></i>
       </div>
@@ -412,8 +411,11 @@ function opdRenderServices() {
     const uid = 'svcprog-' + s.id;
     window['ssSvcProg_' + s.id] = function(code) { opdSvcProgram(s.id, code); };
     return `
-    <div class="service-row" id="svcrow-${s.id}">
-      <div>
+    <div class="service-row" id="svcrow-${s.id}" style="position:relative; padding-top:20px;">
+      <button class="btn btn-ghost btn-icon btn-sm" style="position:absolute; top:4px; right:4px; color:var(--red-500); z-index:10;" onclick="opdRemoveService('${s.id}')" title="ลบรายการ">
+        <i data-lucide="trash-2"></i>
+      </button>
+      <div style="padding-right:24px;">
         <label class="form-label">โปรแกรม/บริการ</label>
         ${buildSS(uid, programs, s.programCode, 'ssSvcProg_' + s.id, 'พิมพ์ค้นหาโปรแกรม...')}
       </div>
@@ -428,11 +430,6 @@ function opdRenderServices() {
         <input type="number" class="form-input" id="svc-comm-${s.id}" style="width:110px;"
           value="${s.commission || ''}" placeholder="0"
           oninput="opdSvcCommInput('${s.id}', this.value)" />
-      </div>
-      <div style="display:flex;align-items:flex-end;">
-        <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--red-500);" onclick="opdRemoveService('${s.id}')">
-          <i data-lucide="trash-2"></i>
-        </button>
       </div>
     </div>`;
   }).join('');

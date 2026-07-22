@@ -14,10 +14,10 @@ function renderReports(container) {
   container.innerHTML = `
   <div>
     <!-- Filter -->
-    <div class="filter-bar" style="margin-bottom:16px;">
-      <div class="filter-actions" style="grid-column: 1 / -1; display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-secondary btn-sm" onclick="rptExport()"><i data-lucide="download"></i> Export CSV</button>
-        <button class="btn btn-secondary btn-sm" onclick="window.print()"><i data-lucide="printer"></i> พิมพ์</button>
+    <div class="filter-bar" style="margin-bottom:16px; position:relative;">
+      <div class="filter-actions" style="position:absolute; top:12px; right:12px; display:flex; gap:4px;">
+        <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--gray-600);" onclick="rptExport()" title="Export CSV"><i data-lucide="download"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--gray-600);" onclick="window.print()" title="พิมพ์"><i data-lucide="printer"></i></button>
       </div>
       ${isAdmin ? `<div class="filter-group">
         <label class="filter-label">พนักงาน</label>
@@ -28,11 +28,11 @@ function renderReports(container) {
       </div>` : ''}
       <div class="filter-group">
         <label class="filter-label">จากวันที่</label>
-        <input type="date" class="filter-input" id="rpt-from" value="${fromStr}" onchange="rptRender()" />
+        <input type="date" class="filter-input" id="rpt-from" value="${fromStr}" onchange="rptRender()" style="min-width:130px;" />
       </div>
       <div class="filter-group">
         <label class="filter-label">ถึงวันที่</label>
-        <input type="date" class="filter-input" id="rpt-to" value="${todayISO()}" onchange="rptRender()" />
+        <input type="date" class="filter-input" id="rpt-to" value="${todayISO()}" onchange="rptRender()" style="min-width:130px;" />
       </div>
       <div class="filter-group">
         <label class="filter-label">ประเภท</label>
@@ -63,9 +63,9 @@ function renderReports(container) {
           <option value="10">10%</option>
         </select>
       </div>
-      <div class="filter-group">
+      <div class="filter-group" style="grid-column: 1 / -1;">
         <label class="filter-label">ค้นหา</label>
-        <input type="text" class="filter-input" id="rpt-search" placeholder="ลูกค้า, โปรแกรม..." oninput="rptRender()" style="min-width:140px;" />
+        <input type="text" class="filter-input" id="rpt-search" placeholder="ลูกค้า, โปรแกรม..." oninput="rptRender()" style="width:100%;" />
       </div>
     </div>
 
@@ -134,28 +134,28 @@ function rptRender() {
   // KPI
   const kpi = document.getElementById('rpt-kpi');
   if (kpi) kpi.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-icon burgundy"><i data-lucide="scissors"></i></div>
+    <div class="stat-card" style="padding:12px; gap:12px;">
+      <div class="stat-icon burgundy"><i data-lucide="sparkles"></i></div>
       <div class="stat-body">
         <div class="stat-label">รวมค่ามือ</div>
         <div class="stat-value burgundy">฿${formatCurrency(totalService)}</div>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="padding:12px; gap:12px;">
       <div class="stat-icon rose"><i data-lucide="trending-up"></i></div>
       <div class="stat-body">
         <div class="stat-label">รวมค่าคอมมิชชั่น</div>
         <div class="stat-value rose">฿${formatCurrency(totalCommission)}</div>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="padding:12px; gap:12px;">
       <div class="stat-icon green"><i data-lucide="file-text"></i></div>
       <div class="stat-body">
         <div class="stat-label">จำนวนรายการ</div>
         <div class="stat-value">${active.length}</div>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="padding:12px; gap:12px;">
       <div class="stat-icon blue"><i data-lucide="users"></i></div>
       <div class="stat-body">
         <div class="stat-label">ลูกค้า</div>
@@ -192,8 +192,8 @@ function rptRender() {
         <th class="num">ยอดลค.จ่าย</th>
         <th class="num">ฐานคิด</th>
         <th class="num">%</th>
-        <th class="num">ค่ามือ</th>
-        <th class="num">ค่าคอมมิชชั่น</th>
+        <th class="num" style="width:13%;">ค่ามือ</th>
+        <th class="num" style="width:13%;">ค่าคอมมิชชั่น</th>
       </tr>
     </thead>
     <tbody>
@@ -205,7 +205,7 @@ function rptRender() {
         <td style="font-weight:600;">${r.customerName||'-'}</td>
         <td>${r.category==='service'?'<span class="badge badge-service">ค่ามือ</span>':typeBadge(r.saleType)}</td>
         <td style="font-size:0.78rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.oldProgram||''}">${r.oldProgram?`<span title="${r.oldProgram}">${r.oldProgram.slice(0,20)}${r.oldProgram.length>20?'...':''}</span>`:'-'}</td>
-        <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.newProgram||''}">${r.newProgram||'-'}</td>
+        <td style="font-weight:600;min-width:150px;white-space:normal;" title="${r.newProgram||''}">${r.newProgram||'-'}</td>
         <td class="num">${r.amountPaid?'฿'+formatCurrency(r.amountPaid):'-'}</td>
         <td class="num">${r.commissionBase?'฿'+formatCurrency(r.commissionBase):'-'}</td>
         <td class="num">${r.commissionPct?r.commissionPct+'%':'-'}</td>

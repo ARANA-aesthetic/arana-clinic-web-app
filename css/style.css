@@ -5,17 +5,17 @@
 
 /* ── Variables ─────────────────────────────────────────────── */
 :root {
-  /* Professional SaaS Burgundy Palette */
-  --burgundy-900: #4a1525;
-  --burgundy-800: #5c192d;
-  --burgundy-700: #731f38;
-  --burgundy-600: #8c2644;
-  --burgundy-500: #a62d50;
-  --burgundy-400: #bf4065;
-  --burgundy-300: #d96c8a;
-  --burgundy-200: #e699af;
-  --burgundy-100: #f2c7d5;
-  --burgundy-50:  #fae6eb;
+  /* Brighter, Youthful Burgundy Palette */
+  --burgundy-900: #630c2c;
+  --burgundy-800: #81133b;
+  --burgundy-700: #9e1948;
+  --burgundy-600: #bb2057;
+  --burgundy-500: #d62c68;
+  --burgundy-400: #e35a8a;
+  --burgundy-300: #ee86ad;
+  --burgundy-200: #f5b0cd;
+  --burgundy-100: #fbe0ec;
+  --burgundy-50:  #fdf3f8;
   
   --cream: #ffffff; /* Cleaner background */
   --charcoal: #1e293b;
@@ -52,6 +52,15 @@
   --orange-600: #ea580c;
   --orange-500: #f97316;
   --orange-100: #ffedd5;
+  
+  /* Solid Pastel Backgrounds */
+  --pastel-pink: #fdf2f8; /* for service fee / ค่ามือ */
+  --pastel-purple: #f3e8ff; /* for upsell / อัพเซลส์ */
+  --pastel-green: #dcfce7; /* for cross-sell / ขายเพิ่ม */
+  --pastel-yellow: #fef3c7; /* for products / ขายสินค้า */
+  --pastel-blue: #dbeafe;
+  --pastel-orange: #ffedd5;
+  --pastel-burgundy: #fbe0ec;
 
   /* No more glass */
   --glass-bg: #ffffff;
@@ -315,7 +324,7 @@ ul, ol { list-style: none; }
 }
 .role-frontdesk { background: rgba(50,120,220,0.28); color: hsl(215,90%,80%); }
 .role-audit { background: rgba(20,160,130,0.28); color: hsl(174,80%,75%); }
-.role-admin { background: rgba(220,60,90,0.28); color: var(--rose-200); }
+.role-admin { background: rgba(220,60,90,0.4); color: white; }
 
 .sidebar-branch {
   display: flex;
@@ -350,7 +359,7 @@ ul, ol { list-style: none; }
   padding: 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px; /* Increased gap from 2px to 8px */
 }
 .sidebar-nav::-webkit-scrollbar { width: 3px; }
 .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
@@ -360,7 +369,7 @@ ul, ol { list-style: none; }
   font-size: 0.65rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.7); /* Brighter for readability */
   padding: 10px 10px 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -1433,6 +1442,15 @@ body.sidebar-active::before {
   .topbar { padding: 0 12px; }
   .topbar-title { font-size: 0.9rem; }
 }
+
+/* ── Pastel Background Utilities ────────────────────────────── */
+.bg-pastel-pink { background: var(--pastel-pink) !important; }
+.bg-pastel-purple { background: var(--pastel-purple) !important; }
+.bg-pastel-green { background: var(--pastel-green) !important; }
+.bg-pastel-yellow { background: var(--pastel-yellow) !important; }
+.bg-pastel-blue { background: var(--pastel-blue) !important; }
+.bg-pastel-orange { background: var(--pastel-orange) !important; }
+.bg-pastel-burgundy { background: var(--pastel-burgundy) !important; }
 
 /* ── PRINT ────────────────────────────────────────────────── */
 @media print {

@@ -49,10 +49,11 @@ function scRenderStockCard(body) {
   const canSeeBalance = currentUser.role !== 'Frontdesk';
 
   body.innerHTML = `
-  <div class="filter-bar">
-    <div class="filter-group">
+  <div class="filter-bar" style="position:relative;">
+    ${canExport ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="scExportCSV()" style="position:absolute; top:12px; right:12px; color:var(--gray-600);" title="Export"><i data-lucide="download"></i></button>` : ''}
+    <div class="filter-group" style="grid-column: 1 / -1;">
       <label class="filter-label">ค้นหา</label>
-      <input type="text" class="filter-input" id="sc-search" placeholder="รหัส / ชื่อสินค้า..." oninput="scRenderTable()" style="width:180px;" />
+      <input type="text" class="filter-input" id="sc-search" placeholder="รหัส / ชื่อสินค้า..." oninput="scRenderTable()" style="width:100%;" />
     </div>
     <div class="filter-group">
       <label class="filter-label">จากวันที่</label>
@@ -70,9 +71,6 @@ function scRenderStockCard(body) {
         <option value="OUT">เบิกออก</option>
         <option value="TRANSFER">โอนสาขา</option>
       </select>
-    </div>
-    <div class="filter-actions">
-      ${canExport ? `<button class="btn btn-ghost btn-sm" onclick="scExportCSV()"><i data-lucide="download"></i> Export CSV</button>` : ''}
     </div>
   </div>
   <div class="glass-card" style="padding:0;overflow:hidden;">
@@ -211,9 +209,9 @@ function scRenderWeekly(body) {
           ${catOptions.map(c => `<option value="${c}" ${c===wcCategory?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="flex:1;">
         <label class="form-label">ค้นหา</label>
-        <input type="text" class="filter-input" id="wc-search" placeholder="ชื่อสินค้า..." oninput="scRenderWeeklyTable()" />
+        <input type="text" class="filter-input" id="wc-search" placeholder="ชื่อสินค้า..." oninput="scRenderWeeklyTable()" style="width:100%;" />
       </div>
     </div>
     <div id="weekly-table-wrap"></div>
@@ -257,9 +255,8 @@ function scRenderWeeklyTable() {
         <div class="count-row" id="count-row-${p.code}">
           <div class="count-row-info">
             <div class="count-row-code">${p.code}</div>
-            <div class="count-row-name">${p.name}</div>
+            <div class="count-row-name" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${p.name}</div>
           </div>
-          ${canSeeBalance ? `<span style="font-size:0.78rem;color:var(--gray-400);min-width:60px;text-align:right;">ระบบ: ${sysBal}</span>` : ''}
           ${isCounted ? `
             <span class="count-result-badge count-match" style="margin-right:4px;">นับแล้ว: ${counted}</span>
           ` : `
@@ -337,10 +334,11 @@ function wcSaveAll() {
 // ── TAB 3: Balance (Audit/Admin) ─────────────────────────
 function scRenderBalance(body) {
   body.innerHTML = `
-  <div class="filter-bar">
-    <div class="filter-group">
+  <div class="filter-bar" style="position:relative;">
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="balExport()" style="position:absolute; top:12px; right:12px; color:var(--gray-600);" title="Export"><i data-lucide="download"></i></button>
+    <div class="filter-group" style="grid-column: 1 / -1;">
       <label class="filter-label">ค้นหา</label>
-      <input type="text" class="filter-input" id="bal-search" placeholder="รหัส / ชื่อ..." oninput="balRender()" style="width:200px;" />
+      <input type="text" class="filter-input" id="bal-search" placeholder="รหัส / ชื่อ..." oninput="balRender()" style="width:100%;" />
     </div>
     <div class="filter-group">
       <label class="filter-label">หมวดหมู่</label>
@@ -354,15 +352,12 @@ function scRenderBalance(body) {
     </div>
     <div class="filter-group">
       <label class="filter-label">สาขา</label>
-      <div style="display:flex; gap:8px;">
-        <select class="filter-select" id="bal-branch" onchange="balRender()" style="flex:1;">
-          <option value="ALL">ทุกสาขา</option>
-          <option value="พิษณุโลก">พิษณุโลก</option>
-          <option value="กำแพงเพชร">กำแพงเพชร</option>
-          <option value="แม่สอด">แม่สอด</option>
-        </select>
-        <button class="btn btn-secondary btn-sm" onclick="balExport()" style="padding:0 12px; white-space:nowrap;"><i data-lucide="download"></i> Export</button>
-      </div>
+      <select class="filter-select" id="bal-branch" onchange="balRender()">
+        <option value="ALL">ทุกสาขา</option>
+        <option value="พิษณุโลก">พิษณุโลก</option>
+        <option value="กำแพงเพชร">กำแพงเพชร</option>
+        <option value="แม่สอด">แม่สอด</option>
+      </select>
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden;">

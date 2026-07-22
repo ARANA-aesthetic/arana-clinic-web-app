@@ -47,7 +47,7 @@ function invRender() {
   const branches = ['พิษณุโลก','กำแพงเพชร','แม่สอด'].filter(b => b !== currentBranch);
 
   body.innerHTML = `
-  <div class="glass-card" style="margin-bottom:16px;border-top:3px solid var(--${info.color}-500);">
+  <div class="glass-card bg-pastel-${info.color}" style="margin-bottom:16px;border-top:3px solid var(--${info.color}-500); padding:20px;">
     <div class="section-header" style="margin-bottom:12px;">
       <span class="section-title ${info.color}"><i data-lucide="${info.icon}" style="width:16px;height:16px;display:inline;margin-right:4px;"></i>${info.title}</span>
     </div>
