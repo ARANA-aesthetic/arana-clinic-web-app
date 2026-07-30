@@ -19,6 +19,9 @@ function renderAdmin(container) {
       <button class="tab-btn" id="adm-tab-logs" onclick="admSwitch('logs')">
         <i data-lucide="activity"></i>System Logs
       </button>
+      <button class="tab-btn" id="adm-tab-import" onclick="admSwitch('import')">
+        <i data-lucide="file-up"></i>นำเข้าข้อมูล (Import)
+      </button>
     </div>
     <div id="adm-body"></div>
   </div>`;
@@ -44,6 +47,7 @@ function admRender() {
   if (!body) return;
   if (adminTab === 'ai') admRenderAI(body);
   else if (adminTab === 'users') admRenderUsers(body);
+  else if (adminTab === 'import') admRenderImport(body);
   else admRenderLogs(body);
 }
 
@@ -297,4 +301,248 @@ function admExportSysLogs() {
   a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
   a.download = `system_logs_${todayISO()}.csv`;
   a.click();
+}
+
+// ── IMPORT CSV DATA ───────────────────────────────────────
+let _importProgramsData = [];
+let _importProductsData = [];
+
+function admRenderImport(body) {
+  _importProgramsData = [];
+  _importProductsData = [];
+
+  body.innerHTML = `
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
+    <!-- Programs Import -->
+    <div class="glass-card" style="padding:20px;">
+      <h3 style="font-size:1.1rem;font-weight:700;color:var(--burgundy-800);margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <i data-lucide="clipboard-list" style="color:var(--burgundy-500); width:18px;height:18px;"></i> 1. นำเข้าข้อมูลโปรแกรม/บริการ (Programs)
+      </h3>
+      <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:16px;">
+        ใช้สำหรับการตั้งค่าเริ่มต้นหรืออัปเดตบริการทั้งหมดของคลินิก โดยรองรับไฟล์ CSV
+      </p>
+      
+      <div style="background:var(--gray-50);padding:12px;border-radius:var(--radius-md);font-size:0.75rem;color:var(--gray-600);margin-bottom:16px;line-height:1.4;">
+        <strong>รูปแบบคอลัมน์ใน CSV (โปรแกรม):</strong><br>
+        <code>code, name, price, unit, category</code><br>
+        หรือภาษาไทย: <code>รหัสโปรแกรม, ชื่อโปรแกรม, ราคา, หน่วย, หมวดหมู่</code>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
+            <i data-lucide="file-spreadsheet"></i> เลือกไฟล์ CSV
+            <input type="file" id="import-prog-file" accept=".csv" style="display:none;" onchange="admHandleCSVImport(event, 'programs')" />
+          </label>
+          <span id="import-prog-filename" style="font-size:0.8rem;color:var(--gray-400);">ยังไม่ได้เลือกไฟล์</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--charcoal);cursor:pointer;">
+            <input type="radio" name="import-prog-mode" value="append" checked /> เพิ่มข้อมูลใหม่ต่อท้าย
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--charcoal);cursor:pointer;">
+            <input type="radio" name="import-prog-mode" value="overwrite" /> ล้างและเขียนทับทั้งหมด
+          </label>
+        </div>
+
+        <div id="import-prog-preview" style="margin-top:12px;"></div>
+
+        <button class="btn btn-primary" id="import-prog-btn" onclick="admSubmitImport('programs')" disabled style="margin-top:8px;align-self:flex-start;">
+          <i data-lucide="upload"></i> ดำเนินการนำเข้าข้อมูลโปรแกรม
+        </button>
+      </div>
+    </div>
+
+    <!-- Products Import -->
+    <div class="glass-card" style="padding:20px;">
+      <h3 style="font-size:1.1rem;font-weight:700;color:var(--burgundy-800);margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <i data-lucide="package" style="color:var(--burgundy-500); width:18px;height:18px;"></i> 2. นำเข้าข้อมูลคลังยา/อุปกรณ์ (Products)
+      </h3>
+      <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:16px;">
+        ใช้สำหรับการตั้งค่าสต๊อกเริ่มต้นจาก ERP (เช่น APSX) เข้าสู่คลังสินค้าของคลินิก
+      </p>
+
+      <div style="background:var(--gray-50);padding:12px;border-radius:var(--radius-md);font-size:0.75rem;color:var(--gray-600);margin-bottom:16px;line-height:1.4;">
+        <strong>รูปแบบคอลัมน์ใน CSV (ยา/อุปกรณ์):</strong><br>
+        <code>code, name, unit, category, stockQty</code><br>
+        หรือภาษาไทย: <code>รหัสสินค้า, ชื่อสินค้า, หน่วย, หมวดหมู่, จำนวนคงเหลือ</code>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
+            <i data-lucide="file-spreadsheet"></i> เลือกไฟล์ CSV
+            <input type="file" id="import-prod-file" accept=".csv" style="display:none;" onchange="admHandleCSVImport(event, 'products')" />
+          </label>
+          <span id="import-prod-filename" style="font-size:0.8rem;color:var(--gray-400);">ยังไม่ได้เลือกไฟล์</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--charcoal);cursor:pointer;">
+            <input type="radio" name="import-prod-mode" value="append" checked /> เพิ่มข้อมูลใหม่ต่อท้าย
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--charcoal);cursor:pointer;">
+            <input type="radio" name="import-prod-mode" value="overwrite" /> ล้างและเขียนทับทั้งหมด
+          </label>
+        </div>
+
+        <div id="import-prod-preview" style="margin-top:12px;"></div>
+
+        <button class="btn btn-primary" id="import-prod-btn" onclick="admSubmitImport('products')" disabled style="margin-top:8px;align-self:flex-start;">
+          <i data-lucide="upload"></i> ดำเนินการนำเข้าข้อมูลคลังสินค้า
+        </button>
+      </div>
+    </div>
+  </div>`;
+  lucide.createIcons();
+}
+
+function admHandleCSVImport(event, type) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const isProg = type === 'programs';
+  const filenameEl = document.getElementById(`import-${isProg ? 'prog' : 'prod'}-filename`);
+  if (filenameEl) filenameEl.textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const text = ev.target.result;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length <= 1) {
+        Toast.show('ไฟล์ไม่มีข้อมูลหรือรูปแบบไม่ถูกต้อง', 'error');
+        return;
+      }
+
+      const rawHeaders = lines[0].split(',');
+      const headers = rawHeaders.map(h => h.replace(/"/g, '').trim());
+
+      const data = lines.slice(1).map(line => {
+        const cols = [];
+        let insideQuote = false;
+        let current = '';
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            insideQuote = !insideQuote;
+          } else if (char === ',' && !insideQuote) {
+            cols.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        cols.push(current.trim());
+
+        const obj = {};
+        headers.forEach((h, idx) => {
+          let val = cols[idx] || '';
+          val = val.replace(/^"|"$/g, '').trim();
+          obj[h] = val;
+        });
+        return obj;
+      });
+
+      const previewEl = document.getElementById(`import-${isProg ? 'prog' : 'prod'}-preview`);
+      if (previewEl) {
+        previewEl.innerHTML = `
+          <div class="alert-box alert-success" style="padding: 8px 12px; font-size: 0.78rem; margin-bottom: 8px; border-radius: var(--radius-sm);">
+            <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+            <span>ตรวจสอบรูปแบบผ่าน: อ่านได้ ${data.length} รายการ</span>
+          </div>
+          <div class="table-wrap" style="max-height: 150px; overflow: auto; border-radius: var(--radius-sm);">
+            <table style="font-size:0.75rem;">
+              <thead>
+                <tr>
+                  ${headers.slice(0, 4).map(h => `<th>${h}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${data.slice(0, 5).map(row => `
+                  <tr>
+                    ${headers.slice(0, 4).map(h => `<td>${row[h] || '-'}</td>`).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+
+      if (isProg) {
+        _importProgramsData = data;
+        document.getElementById('import-prog-btn').disabled = false;
+      } else {
+        _importProductsData = data;
+        document.getElementById('import-prod-btn').disabled = false;
+      }
+    } catch (e) {
+      console.error(e);
+      Toast.show('เกิดข้อผิดพลาดในการอ่านไฟล์ CSV: ' + e.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function admSubmitImport(type) {
+  const isProg = type === 'programs';
+  const data = isProg ? _importProgramsData : _importProductsData;
+  if (!data || data.length === 0) {
+    Toast.show('ไม่มีข้อมูลสำหรับนำเข้า', 'error');
+    return;
+  }
+
+  const mode = document.querySelector(`input[name="import-${isProg ? 'prog' : 'prod'}-mode"]:checked`).value;
+  
+  try {
+    let currentData = isProg ? DB.getPrograms() : DB.getProducts();
+    if (mode === 'overwrite') {
+      currentData = [];
+    }
+
+    let successCount = 0;
+    data.forEach(row => {
+      let code = row.code || row['รหัสโปรแกรม'] || row['รหัสสินค้า'] || row.Code || '';
+      let name = row.name || row['ชื่อโปรแกรม'] || row['ชื่อสินค้า'] || row.Name || '';
+      let unit = row.unit || row['หน่วย'] || row.Unit || (isProg ? 'ครั้ง' : 'ชิ้น');
+      let category = row.category || row['หมวดหมู่'] || row.Category || (isProg ? 'ทั่วไป' : 'ทั่วไป');
+      
+      if (!code || !name) return;
+
+      if (isProg) {
+        let price = parseFloat(row.price || row['ราคา'] || row.Price || 0);
+        if (mode === 'append') {
+          currentData = currentData.filter(p => p.code !== code);
+        }
+        currentData.push({ code, name, price, unit, category });
+        successCount++;
+      } else {
+        let stockQty = parseInt(row.stockQty || row['จำนวนคงเหลือ'] || row.StockQty || 0);
+        let typeVal = parseInt(row.type || row['ประเภท'] || 1);
+        if (mode === 'append') {
+          currentData = currentData.filter(p => p.code !== code);
+        }
+        currentData.push({ code, name, unit, category, type: typeVal, stockQty });
+        successCount++;
+      }
+    });
+
+    DB._set(isProg ? 'programs' : 'products', currentData);
+
+    Toast.show(`นำเข้าข้อมูล ${successCount} รายการเรียบร้อยแล้ว!`, 'success');
+    
+    DB.saveAuditLog({
+      action: `IMPORT_${type.toUpperCase()}`,
+      target: `จำนวน ${successCount} รายการ (โหมด: ${mode})`,
+      note: `นำเข้าผ่านไฟล์ CSV โดยแอดมิน`
+    });
+
+    admRenderImport(document.getElementById('adm-body'));
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาดขณะนำเข้าข้อมูล: ' + e.message, 'error');
+  }
 }

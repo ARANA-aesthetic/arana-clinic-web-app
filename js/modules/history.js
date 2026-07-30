@@ -252,16 +252,18 @@ function histRender() {
   if (pages <= 1) { pag.innerHTML = ''; } else {
     pag.innerHTML = `
       <div class="pagination">
-        <button class="page-btn" onclick="histGoPage(${page-1})" ${page<=1?'disabled':''}>
-          <i data-lucide="chevron-left"></i>
-        </button>
-        ${Array.from({length:pages},(_,i)=>i+1).map(p =>
-          `<button class="page-btn ${p===page?'active':''}" onclick="histGoPage(${p})">${p}</button>`
-        ).join('')}
-        <button class="page-btn" onclick="histGoPage(${page+1})" ${page>=pages?'disabled':''}>
-          <i data-lucide="chevron-right"></i>
-        </button>
-        <span class="page-info">รวม ${total} รายการ</span>
+        <span class="page-info">แสดง ${(page-1)*perPage+1} ถึง ${Math.min(page*perPage, total)} ทั้งหมด ${total} รายการ</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="page-btn" onclick="histGoPage(${page-1})" ${page<=1?'disabled':''}>
+            <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
+          </button>
+          ${Array.from({length:pages},(_,i)=>i+1).map(p =>
+            `<button class="page-btn ${p===page?'active':''}" onclick="histGoPage(${p})">${p}</button>`
+          ).join('')}
+          <button class="page-btn" onclick="histGoPage(${page+1})" ${page>=pages?'disabled':''}>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+        </div>
       </div>`;
   }
   lucide.createIcons();

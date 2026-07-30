@@ -201,6 +201,32 @@ function navigate(route) {
   const routeConf = ROUTES[route];
   document.getElementById('page-title').textContent = routeConf.label;
 
+  // Render APSX-style Page Header Card
+  const headerCard = document.getElementById('apsx-page-header');
+  if (headerCard) {
+    let parentCategory = 'ระบบหลัก';
+    if (route === 'opd' || route === 'history') parentCategory = 'OPD & ประวัติ';
+    else if (route.startsWith('inventory-') || route === 'stockcard' || route === 'weeklycount' || route === 'balance') parentCategory = 'คลังสินค้า';
+    else if (route === 'reports') parentCategory = 'รายงาน';
+    else if (route === 'audit') parentCategory = 'ห้องตรวจสอบ';
+    else if (route === 'admin' || route === 'systemlogs') parentCategory = 'ผู้ดูแลระบบ';
+
+    headerCard.innerHTML = `
+      <div class="apsx-page-header">
+        <div class="apsx-header-info">
+          <div class="apsx-header-icon-circle burgundy">
+            <i data-lucide="${routeConf.icon}" style="width:20px;height:20px;"></i>
+          </div>
+          <div class="apsx-header-text">
+            <div class="apsx-header-breadcrumb">${parentCategory} &gt; ${routeConf.label}</div>
+            <h2 class="apsx-header-title">${routeConf.label}</h2>
+          </div>
+        </div>
+        <div class="apsx-header-actions" id="apsx-header-actions">
+        </div>
+      </div>`;
+  }
+
   currentRoute = route;
 
   // Render
@@ -211,6 +237,8 @@ function navigate(route) {
     getPage().innerHTML = `<div class="page-error"><i data-lucide="alert-triangle"></i><p>เกิดข้อผิดพลาดในการโหลดหน้า: ${e.message}</p></div>`;
     lucide.createIcons();
   }
+
+  lucide.createIcons();
 
   // On mobile: close sidebar after navigation
   if (window.innerWidth <= 768) {

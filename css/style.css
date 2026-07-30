@@ -1452,9 +1452,110 @@ body.sidebar-active::before {
 .bg-pastel-orange { background: var(--pastel-orange) !important; }
 .bg-pastel-burgundy { background: var(--pastel-burgundy) !important; }
 
+/* ── APSX Style Improvements ───────────────────────────────── */
+.apsx-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--white);
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-100);
+  box-shadow: 0 4px 12px rgba(139,26,58,0.02);
+  margin-bottom: 20px;
+}
+
+.apsx-header-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.apsx-header-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.apsx-header-icon-circle.burgundy {
+  background: var(--burgundy-50);
+  color: var(--burgundy-500);
+}
+
+.apsx-header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.apsx-header-breadcrumb {
+  font-size: 0.72rem;
+  color: var(--gray-400);
+  margin-bottom: 2px;
+}
+
+.apsx-header-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--charcoal);
+  margin: 0;
+}
+
+.apsx-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Sidebar active override (APSX Style) */
+.nav-item.active {
+  background: var(--burgundy-700) !important;
+  color: var(--white) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(139,26,58,0.2) !important;
+}
+.nav-item.active::before {
+  display: none !important;
+}
+
+/* Table styling updates (APSX Style) */
+thead th {
+  background: var(--burgundy-700) !important;
+  color: var(--white) !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid var(--burgundy-900) !important;
+  border-right: none !important;
+}
+tbody td {
+  border-right: none !important;
+}
+tbody tr:hover {
+  background: var(--burgundy-50) !important;
+}
+
+/* Pagination updates */
+.pagination {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 12px 18px !important;
+  background: var(--white) !important;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
+  border-top: 1px solid var(--gray-100) !important;
+}
+.page-btn {
+  border-radius: 50% !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  background: var(--white) !important;
+  padding: 0 !important;
+}
+
 /* ── PRINT ────────────────────────────────────────────────── */
 @media print {
-  .sidebar, .topbar, .filter-bar, .pagination, .btn, .tab-bar, .toast-container, .modal-overlay { display: none !important; }
+  .sidebar, .topbar, .filter-bar, .pagination, .btn, .tab-bar, .toast-container, .modal-overlay, .apsx-page-header { display: none !important; }
   .main-content { width: 100%; }
   .page-content { padding: 0; overflow: visible; }
   .table-wrap { border: none; box-shadow: none; }
