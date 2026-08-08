@@ -7,12 +7,16 @@ let scTab = 'stockcard';
 let wcCounted = {};
 let wcCategory = 'ทั้งหมด';
 
-function renderStockCard(container) {
-  const canSeeBalance = currentUser.role !== 'Frontdesk';
+function renderStockCardShell(container) {
   container.innerHTML = `
   <div>
     <div id="sc-body"></div>
   </div>`;
+}
+
+function renderStockCard(container) {
+  scTab = 'stockcard';
+  renderStockCardShell(container);
   scRender();
   lucide.createIcons();
 }
@@ -27,12 +31,16 @@ function scSwitch(tab) {
 
 function renderWeeklyCount(container) {
   scTab = 'weekly';
-  renderStockCard(container);
+  renderStockCardShell(container);
+  scRender();
+  lucide.createIcons();
 }
 
 function renderBalance(container) {
   scTab = 'balance';
-  renderStockCard(container);
+  renderStockCardShell(container);
+  scRender();
+  lucide.createIcons();
 }
 
 function scRender() {
