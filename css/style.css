@@ -175,11 +175,9 @@ ul, ol { list-style: none; }
   font-size: 2.8rem;
   font-weight: 600;
   letter-spacing: 0.18em;
-  background: linear-gradient(135deg, var(--burgundy-800) 0%, var(--burgundy-500) 50%, var(--rose-400) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--burgundy-700);
   line-height: 1;
+  display: block;
 }
 .logo-line {
   width: 100%;
@@ -457,6 +455,58 @@ ul, ol { list-style: none; }
 }
 
 /* ── TOPBAR ───────────────────────────────────────────────── */
+.apsx-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--glass-shadow);
+}
+
+.apsx-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.apsx-header-icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--burgundy-500);
+  color: var(--white);
+}
+
+.apsx-header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.apsx-header-breadcrumb {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}
+
+.apsx-header-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--burgundy-800);
+  margin: 2px 0 0;
+}
+
+.apsx-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .topbar {
   height: var(--topbar-height);
   background: var(--white);
