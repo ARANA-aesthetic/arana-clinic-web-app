@@ -36,6 +36,7 @@ function renderHistory(container) {
         <div style="display:flex; gap:8px;">
           <select class="filter-select" id="hist-status" onchange="histApplyFilter()" style="flex:1;">
             <option value="">ทุกสถานะ</option>
+            <option value="ฉบับร่าง">ฉบับร่าง</option>
             <option value="รอตรวจสอบ">รอตรวจสอบ</option>
             <option value="อนุมัติแล้ว">อนุมัติแล้ว</option>
             <option value="ตีกลับ">ตีกลับ</option>
@@ -229,6 +230,10 @@ function histRender() {
                   ${(b.status === 'ตีกลับ' || b.status === 'รอแก้ไข') ? `
                   <button class="btn btn-primary btn-sm" title="แก้ไขบิล" onclick="histDoEditBill('${b.id}')">
                     <i data-lucide="edit"></i> แก้ไขบิล
+                  </button>` : ''}
+                  ${b.status === 'ฉบับร่าง' ? `
+                  <button class="btn btn-primary btn-sm" title="ทำรายการต่อ" onclick="histDoEditBill('${b.id}')">
+                    <i data-lucide="pencil"></i> ทำรายการต่อ
                   </button>` : ''}
                   ${(b.status === 'รอตรวจสอบ' || b.status === 'อนุมัติแล้ว') ? `
                   <button class="btn btn-secondary btn-sm" title="ขอแก้ไข" onclick="histRequestEdit('${b.id}')">

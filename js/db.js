@@ -89,7 +89,7 @@ const DB = {
     if (!bill.id) {
       bill.id = this._genId();
       bill.createdAt = new Date().toISOString();
-      bill.status = 'รอตรวจสอบ';
+      bill.status = bill.status || 'รอตรวจสอบ';
       bills.push(bill);
     } else {
       const idx = bills.findIndex(b => b.id === bill.id);

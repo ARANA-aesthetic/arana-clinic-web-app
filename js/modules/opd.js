@@ -301,6 +301,9 @@ function renderOPD(container) {
     <!-- Submit -->
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-bottom:20px;">
       <button class="btn btn-ghost" onclick="opdReset()"><i data-lucide="rotate-ccw"></i> ล้างฟอร์ม</button>
+      <button class="btn btn-secondary" onclick="opdSaveDraft()" id="opd-draft-btn">
+        <i data-lucide="inbox"></i> บันทึกร่าง
+      </button>
       <button class="btn btn-primary" onclick="opdSubmit()" id="opd-submit-btn">
         <i data-lucide="save"></i> บันทึก OPD
       </button>
@@ -1012,6 +1015,102 @@ function opdSubmit() {
     btn.classList.remove('loading'); btn.disabled = false;
     Toast.show('บันทึก OPD เรียบร้อย ✓ — รออนุมัติ', 'success', 4000);
     opdReset();
+  }, 400);
+}
+
+function opdSaveDraft() {
+  const btn = document.getElementById('opd-draft-btn');
+  let billId, hn, customerName, date, branch;
+
+  if (opdState.isShared) {
+    if (!opdState.sharedBillId) { Toast.show('กรุณาเลือกบิลที่ต้องการลงร่วม', 'error'); return; }
+    const oldBill = DB.getBillById(opdState.sharedBillId);
+    hn = oldBill.hn; customerName = oldBill.customerName; date = oldBill.date; branch = oldBill.branch;
+  } else {
+    hn           = document.getElementById('opd-hn').value.trim();
+    customerName = document.getElementById('opd-customer').value.trim();
+    date         = document.getElementById('opd-date').value;
+    branch       = currentBranch;
+    // For draft, we don't strictly require all fields, but we need at least something to identify it.
+    if (!hn && !customerName) { Toast.show('กรุณากรอก HN หรือ ชื่อลูกค้า อย่างน้อย 1 อย่างเพื่อบันทึกร่าง', 'error'); return; }
+    if (!date) date = todayISO();
+  }
+
+  btn.classList.add('loading'); btn.disabled = true;
+
+  setTimeout(() => {
+    if (opdState.billId && !opdState.isShared) {
+      // Editing an existing bill (could be an existing draft)
+      const b = DB.getBillById(opdState.billId);
+      if (b) {
+        b.hn = hn;
+        b.customerName = customerName;
+        b.date = date;
+        b.status = 'ฉบับร่าง'; // Set to draft
+        b.auditNote = '';
+        DB.saveBill(b);
+      }
+      billId = opdState.billId;
+
+      // Mark old records as superseded
+      DB.getBillServices(billId).filter(s => !s.is_superseded).forEach(s => { s.is_superseded = true; DB.saveBillService(s); });
+      DB.getBillSales(billId).filter(s => !s.is_superseded).forEach(s => { s.is_superseded = true; DB.saveBillSale(s); });
+      DB.getBillSupplies(billId).filter(s => !s.is_superseded).forEach(s => { s.is_superseded = true; DB.saveBillSupply(s); });
+      
+      // Remove old images
+      if (DB.getBillImages && DB.deleteBillImage) {
+        const oldImgs = DB.getBillImages(billId);
+        oldImgs.forEach(img => DB.deleteBillImage(img.id));
+      }
+
+      // Remove old stock logs tied to this bill (Draft shouldn't have stock logs, but just in case)
+      if (DB._get && DB._set) {
+        let slogs = DB._get('stock_logs') || [];
+        slogs = slogs.filter(l => l.opdBillId !== billId);
+        DB._set('stock_logs', slogs);
+      }
+    } else {
+      // Create new draft
+      const payload = { hn, customerName, date, branch, createdBy: currentUser.id, status: 'ฉบับร่าง' };
+      if (opdState.isShared) payload.parentBillId = opdState.sharedBillId;
+      const bill = DB.saveBill(payload);
+      billId = bill.id;
+    }
+
+    opdState.services.forEach(s => {
+      if (!s.programCode && !s.price) return;
+      DB.saveBillService({ billId, programCode: s.programCode, programName: s.programName, price: s.price, commission: s.commission, createdBy: currentUser.id, is_superseded: false });
+    });
+
+    opdState.sales.forEach(s => {
+      if (!s.newProgram && !s.newPrice) return;
+      DB.saveBillSale({ 
+        billId, type: s.type, 
+        oldProgram: s.oldProgram, oldPrice: s.oldPrice, 
+        newProgram: s.newProgram, newPrice: s.newPrice, 
+        payType: s.payType, installmentNo: s.installmentNo, amountPaid: s.amountPaid, 
+        commissionBase: s.commissionBase, commissionBaseManual: s.commissionBaseManual, commissionNote: s.commissionNote,
+        commissionPct: s.commissionPct, commissionAmt: s.commissionAmt, 
+        createdBy: currentUser.id, is_superseded: false 
+      });
+    });
+
+    opdState.supplies.forEach(s => {
+      if (!s.productCode) return;
+      DB.saveBillSupply({ billId, productCode: s.productCode, productName: s.productName, qty: s.qty, unit: s.unit, createdBy: currentUser.id, is_superseded: false });
+      // Note: We DO NOT auto-create stock logs for drafts. Stock logs are only created upon actual submission.
+    });
+
+    opdState.photos.forEach(p => {
+      DB.saveBillImage({ billId, name: p.name, data: p.data });
+    });
+
+    btn.classList.remove('loading'); btn.disabled = false;
+    Toast.show('บันทึกร่างเรียบร้อย สามารถเรียกดูและทำรายการต่อได้ที่หน้า "ประวัติบิลของฉัน"', 'success', 4000);
+    opdReset();
+    
+    // Redirect to history tab to show the draft
+    if (typeof navigate === 'function') navigate('history');
   }, 400);
 }
 

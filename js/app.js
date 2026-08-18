@@ -146,6 +146,7 @@ const ROUTES = {
   balance: { label: 'สต๊อกคงเหลือ', icon: 'layers', roles: ['Audit', 'Admin'], render: () => renderBalance(getPage()) },
   reports: { label: 'รายงานผลงานพนักงาน', icon: 'bar-chart-3', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderReports(getPage()) },
   admin: { label: 'AI Auto-Verification', icon: 'cpu', roles: ['Admin'], render: () => renderAdmin(getPage()) },
+  admin_dashboard: { label: 'ระบบ Admin Dashboard', icon: 'layout-dashboard', roles: ['Admin'], render: () => renderAdminDashboard(getPage()) },
   systemlogs: { label: 'System Logs', icon: 'activity', roles: ['Admin'], render: () => renderSystemLogs(getPage()) },
 };
 
@@ -413,6 +414,7 @@ function statusBadge(status) {
     'รอแก้ไข': 'badge-waiting',
     'รอการอนุมัติ': 'badge-pending',
     'อนุมัติ': 'badge-approved',
+    'ฉบับร่าง': 'badge-pending',
   };
   return `<span class="badge ${map[status] || 'badge-pending'}">${status}</span>`;
 }
