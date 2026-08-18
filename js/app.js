@@ -162,7 +162,7 @@ function buildNav() {
     { label: null, routes: ['opd', 'history'] },
     { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'stockcard', 'weeklycount'] },
     { label: 'Audit Zone', routes: ['audit', 'balance', 'reports'] },
-    { label: 'Admin', routes: ['admin', 'systemlogs'] },
+    { label: 'Admin', routes: ['admin', 'admin_dashboard', 'systemlogs'] },
   ];
 
   let html = '';
