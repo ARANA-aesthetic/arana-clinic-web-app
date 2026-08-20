@@ -57,6 +57,30 @@ const DB = {
     if (user && user.password === password) return user;
     return null;
   },
+
+  // ── LOGIN ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────────
+  // ใช้แทน authenticate() แบบเดิม — ตรวจรหัสผ่านฝั่งเซิร์ฟเวอร์ ปลอดภัยกว่า
+  async authenticateSupabase(username, password) {
+    const { data, error } = await sb.rpc('verify_login', {
+      input_username: username,
+      input_password: password
+    });
+    if (error) {
+      console.error('Login error:', error);
+      return null;
+    }
+    if (!data || data.length === 0) return null;
+    const row = data[0];
+    return {
+      id: row.id,
+      username: row.username,
+      name: row.name,
+      nickname: row.nickname,
+      role: row.role,
+      branch: row.branch_name,
+      position: row.position
+    };
+  },
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
