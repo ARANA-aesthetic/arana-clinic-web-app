@@ -19,7 +19,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (saved) {
     try {
       const session = JSON.parse(saved);
-      currentUser = DB.getUserById(session.userId);
+      currentUser = session.user;
       if (currentUser) {
         currentBranch = session.branch || currentUser.branch;
         showApp();
@@ -31,7 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── AUTH ──────────────────────────────────────────────────────
-function login() {
+async function login() {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
   const errorEl = document.getElementById('login-error');
@@ -45,22 +45,20 @@ function login() {
   btn.classList.add('loading');
   btn.disabled = true;
 
-  setTimeout(() => {
-    const user = DB.authenticate(username, password);
-    btn.classList.remove('loading');
-    btn.disabled = false;
+  const user = await DB.authenticateSupabase(username, password);
+  btn.classList.remove('loading');
+  btn.disabled = false;
 
-    if (user) {
-      currentUser = user;
-      currentBranch = user.branch;
-      sessionStorage.setItem('arana_session', JSON.stringify({ userId: user.id, branch: user.branch }));
-      errorEl.classList.add('hidden');
-      showApp();
-    } else {
-      showLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-      document.getElementById('login-password').value = '';
-    }
-  }, 600);
+  if (user) {
+    currentUser = user;
+    currentBranch = user.branch;
+    sessionStorage.setItem('arana_session', JSON.stringify({ user, branch: user.branch }));
+    errorEl.classList.add('hidden');
+    showApp();
+  } else {
+    showLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    document.getElementById('login-password').value = '';
+  }
 }
 
 function logout() {
