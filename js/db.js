@@ -81,6 +81,56 @@ const DB = {
       position: row.position
     };
   },
+
+  // ── จัดการพนักงานผ่านฐานข้อมูลกลาง (Supabase) ───────────────
+  async getUsersSupabase() {
+    const { data, error } = await sb.rpc('admin_list_users');
+    if (error) { console.error('getUsersSupabase error:', error); return []; }
+    return (data || []).map(row => ({
+      id: row.id,
+      username: row.username,
+      name: row.name,
+      nickname: row.nickname,
+      role: row.role,
+      branch: row.branch_name,
+      position: row.position,
+      isActive: row.is_active
+    }));
+  },
+
+  async createUserSupabase({ username, password, name, nickname, role, branch, position }) {
+    const { data, error } = await sb.rpc('admin_create_user', {
+      p_username: username,
+      p_password: password,
+      p_name: name,
+      p_nickname: nickname,
+      p_role: role,
+      p_branch_name: branch,
+      p_position: position || null
+    });
+    if (error) {
+      if (error.message && error.message.includes('USERNAME_EXISTS')) {
+        throw new Error('USERNAME_EXISTS');
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  async setUserActiveSupabase(userId, isActive) {
+    const { error } = await sb.rpc('admin_set_user_active', { p_user_id: userId, p_active: isActive });
+    if (error) throw error;
+  },
+
+  async changeOwnPasswordSupabase(username, oldPassword, newPassword) {
+    const { data, error } = await sb.rpc('change_own_password', {
+      p_username: username,
+      p_old_password: oldPassword,
+      p_new_password: newPassword
+    });
+    if (error) throw error;
+    return data === true;
+  },
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
