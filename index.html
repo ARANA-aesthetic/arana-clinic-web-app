@@ -118,6 +118,10 @@
       </nav>
 
       <div class="sidebar-footer" style="display:flex; flex-direction:column; gap:4px;">
+        <button class="sidebar-item" onclick="openChangePasswordModal()" style="justify-content: flex-start; text-align:left; background:transparent; border:none; width:100%; cursor:pointer;">
+          <i data-lucide="key-round"></i>
+          <span>เปลี่ยนรหัสผ่าน</span>
+        </button>
         <button class="sidebar-item" onclick="if(confirm('ระบบจะรีเซ็ตข้อมูลทั้งหมดและใส่ข้อมูลตัวอย่าง ยืนยันหรือไม่?')){DB.reset(); location.reload();}" style="color:var(--amber-600); font-weight:600; justify-content: flex-start; text-align:left; background:transparent; border:none; width:100%; cursor:pointer;">
           <i data-lucide="database"></i>
           <span>สร้างข้อมูลตัวอย่าง</span>
