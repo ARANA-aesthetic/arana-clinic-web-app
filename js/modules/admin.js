@@ -150,8 +150,9 @@ function admRunAI() {
 }
 
 // ── Users Management ──────────────────────────────────────
-function admRenderUsers(body) {
-  const users = DB.getUsers();
+async function admRenderUsers(body) {
+  body.innerHTML = `<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดรายชื่อพนักงาน...</div>`;
+  const users = await DB.getUsersSupabase();
   body.innerHTML = `
   <div class="glass-card" style="margin-bottom:16px;">
     <div class="section-header" style="margin-bottom:14px;"><span class="section-title">เพิ่มผู้ใช้ใหม่</span></div>
@@ -188,11 +189,12 @@ function admRenderUsers(body) {
           <option value="พิษณุโลก">พิษณุโลก</option>
           <option value="กำแพงเพชร">กำแพงเพชร</option>
           <option value="แม่สอด">แม่สอด</option>
+          <option value="นครสวรรค์">นครสวรรค์</option>
         </select>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;">
-      <button class="btn btn-primary" onclick="admAddUser()"><i data-lucide="user-plus"></i> เพิ่มผู้ใช้</button>
+      <button class="btn btn-primary" id="nu-submit-btn" onclick="admAddUser()"><i data-lucide="user-plus"></i> เพิ่มผู้ใช้</button>
     </div>
   </div>
 
@@ -202,15 +204,21 @@ function admRenderUsers(body) {
     </div>
     <div class="table-wrap" style="border:none;border-radius:0;">
       <table>
-        <thead><tr><th>ชื่อ</th><th>ชื่อเล่น</th><th>Username</th><th>สิทธิ์</th><th>สาขา</th></tr></thead>
+        <thead><tr><th>ชื่อ</th><th>ชื่อเล่น</th><th>Username</th><th>สิทธิ์</th><th>สาขา</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${users.map(u => `
-          <tr>
+          <tr style="${u.isActive ? '' : 'opacity:0.5;'}">
             <td style="font-weight:600;">${u.name||'-'}</td>
             <td>${u.nickname||'-'}</td>
             <td><code style="font-size:0.8rem;background:var(--gray-100);padding:2px 8px;border-radius:4px;">${u.username||'-'}</code></td>
             <td><span class="user-role role-${(u.role||'frontdesk').toLowerCase()}">${u.role||'-'}</span></td>
             <td>${u.branch||'-'}</td>
+            <td>${u.isActive ? '<span style="color:var(--green-600, #16a34a);font-size:0.78rem;">● ใช้งานอยู่</span>' : '<span style="color:var(--gray-400);font-size:0.78rem;">● ปิดใช้งาน</span>'}</td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="admToggleUserActive('${u.id}', ${!u.isActive})">
+                ${u.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+              </button>
+            </td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -219,7 +227,18 @@ function admRenderUsers(body) {
   lucide.createIcons();
 }
 
-function admAddUser() {
+async function admToggleUserActive(userId, newActive) {
+  try {
+    await DB.setUserActiveSupabase(userId, newActive);
+    Toast.show(newActive ? 'เปิดใช้งานบัญชีเรียบร้อย' : 'ปิดใช้งานบัญชีเรียบร้อย', 'success');
+    admRenderUsers(document.getElementById('adm-body'));
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
+  }
+}
+
+async function admAddUser() {
   const name = document.getElementById('nu-name')?.value.trim();
   const nick = document.getElementById('nu-nick')?.value.trim();
   const username = document.getElementById('nu-user')?.value.trim();
@@ -228,11 +247,25 @@ function admAddUser() {
   const branch = document.getElementById('nu-branch')?.value || 'พิษณุโลก';
 
   if (!name || !username || !password) { Toast.show('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
-  if (DB.getUserByUsername && DB.getUserByUsername(username)) { Toast.show('Username นี้ถูกใช้แล้ว', 'error'); return; }
+  if (password.length < 4) { Toast.show('รหัสผ่านควรมีอย่างน้อย 4 ตัวอักษร', 'error'); return; }
 
-  DB.saveUser({ name, nickname: nick || name.split(' ')[0], username, password, role, branch });
-  Toast.show(`เพิ่มผู้ใช้ ${name} เรียบร้อย`, 'success');
-  admRenderUsers(document.getElementById('adm-body'));
+  const btn = document.getElementById('nu-submit-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    await DB.createUserSupabase({ username, password, name, nickname: nick || name.split(' ')[0], role, branch });
+    Toast.show(`เพิ่มผู้ใช้ ${name} เรียบร้อย`, 'success');
+    admRenderUsers(document.getElementById('adm-body'));
+  } catch (e) {
+    if (e.message === 'USERNAME_EXISTS') {
+      Toast.show('Username นี้ถูกใช้แล้ว กรุณาเปลี่ยน', 'error');
+    } else {
+      console.error(e);
+      Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ── System Logs ───────────────────────────────────────────
@@ -306,17 +339,52 @@ function admExportSysLogs() {
 // ── IMPORT CSV DATA ───────────────────────────────────────
 let _importProgramsData = [];
 let _importProductsData = [];
+let _importUsersData = [];
 
 function admRenderImport(body) {
   _importProgramsData = [];
   _importProductsData = [];
+  _importUsersData = [];
 
   body.innerHTML = `
-  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
+  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; flex-wrap: wrap;">
+    <!-- Users Import -->
+    <div class="glass-card" style="padding:20px;">
+      <h3 style="font-size:1.1rem;font-weight:700;color:var(--burgundy-800);margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <i data-lucide="users" style="color:var(--burgundy-500); width:18px;height:18px;"></i> นำเข้ารายชื่อพนักงาน (Users)
+      </h3>
+      <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:16px;">
+        ใช้สำหรับนำเข้ารายชื่อพนักงานจริงจำนวนมากทีเดียว เหมาะสำหรับตอนเปิดสาขาใหม่
+      </p>
+
+      <div style="background:var(--gray-50);padding:12px;border-radius:var(--radius-md);font-size:0.75rem;color:var(--gray-600);margin-bottom:16px;line-height:1.4;">
+        <strong>รูปแบบคอลัมน์ใน CSV (พนักงาน):</strong><br>
+        <code>username, password, name, nickname, role, branch, position</code><br>
+        role ต้องเป็น Frontdesk / Audit / Admin เท่านั้น<br>
+        branch ต้องเป็นชื่อสาขาที่มีอยู่แล้วในระบบ
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
+            <i data-lucide="file-spreadsheet"></i> เลือกไฟล์ CSV
+            <input type="file" id="import-user-file" accept=".csv" style="display:none;" onchange="admHandleCSVImport(event, 'users')" />
+          </label>
+          <span id="import-user-filename" style="font-size:0.8rem;color:var(--gray-400);">ยังไม่ได้เลือกไฟล์</span>
+        </div>
+
+        <div id="import-user-preview" style="margin-top:12px;"></div>
+
+        <button class="btn btn-primary" id="import-user-btn" onclick="admSubmitImport('users')" disabled style="margin-top:8px;align-self:flex-start;">
+          <i data-lucide="upload"></i> ดำเนินการนำเข้ารายชื่อพนักงาน
+        </button>
+      </div>
+    </div>
+
     <!-- Programs Import -->
     <div class="glass-card" style="padding:20px;">
       <h3 style="font-size:1.1rem;font-weight:700;color:var(--burgundy-800);margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-        <i data-lucide="clipboard-list" style="color:var(--burgundy-500); width:18px;height:18px;"></i> 1. นำเข้าข้อมูลโปรแกรม/บริการ (Programs)
+        <i data-lucide="clipboard-list" style="color:var(--burgundy-500); width:18px;height:18px;"></i> นำเข้าข้อมูลโปรแกรม/บริการ (Programs)
       </h3>
       <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:16px;">
         ใช้สำหรับการตั้งค่าเริ่มต้นหรืออัปเดตบริการทั้งหมดของคลินิก โดยรองรับไฟล์ CSV
@@ -357,7 +425,7 @@ function admRenderImport(body) {
     <!-- Products Import -->
     <div class="glass-card" style="padding:20px;">
       <h3 style="font-size:1.1rem;font-weight:700;color:var(--burgundy-800);margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-        <i data-lucide="package" style="color:var(--burgundy-500); width:18px;height:18px;"></i> 2. นำเข้าข้อมูลคลังยา/อุปกรณ์ (Products)
+        <i data-lucide="package" style="color:var(--burgundy-500); width:18px;height:18px;"></i> นำเข้าข้อมูลคลังยา/อุปกรณ์ (Products)
       </h3>
       <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:16px;">
         ใช้สำหรับการตั้งค่าสต๊อกเริ่มต้นจาก ERP (เช่น APSX) เข้าสู่คลังสินค้าของคลินิก
@@ -402,8 +470,8 @@ function admHandleCSVImport(event, type) {
   const file = event.target.files[0];
   if (!file) return;
 
-  const isProg = type === 'programs';
-  const filenameEl = document.getElementById(`import-${isProg ? 'prog' : 'prod'}-filename`);
+  const prefix = type === 'programs' ? 'prog' : (type === 'products' ? 'prod' : 'user');
+  const filenameEl = document.getElementById(`import-${prefix}-filename`);
   if (filenameEl) filenameEl.textContent = file.name;
 
   const reader = new FileReader();
@@ -445,7 +513,7 @@ function admHandleCSVImport(event, type) {
         return obj;
       });
 
-      const previewEl = document.getElementById(`import-${isProg ? 'prog' : 'prod'}-preview`);
+      const previewEl = document.getElementById(`import-${prefix}-preview`);
       if (previewEl) {
         previewEl.innerHTML = `
           <div class="alert-box alert-success" style="padding: 8px 12px; font-size: 0.78rem; margin-bottom: 8px; border-radius: var(--radius-sm);">
@@ -462,7 +530,7 @@ function admHandleCSVImport(event, type) {
               <tbody>
                 ${data.slice(0, 5).map(row => `
                   <tr>
-                    ${headers.slice(0, 4).map(h => `<td>${row[h] || '-'}</td>`).join('')}
+                    ${headers.slice(0, 4).map(h => `<td>${h.toLowerCase().includes('password') ? '••••••' : (row[h] || '-')}</td>`).join('')}
                   </tr>
                 `).join('')}
               </tbody>
@@ -472,12 +540,15 @@ function admHandleCSVImport(event, type) {
         lucide.createIcons();
       }
 
-      if (isProg) {
+      if (type === 'programs') {
         _importProgramsData = data;
         document.getElementById('import-prog-btn').disabled = false;
-      } else {
+      } else if (type === 'products') {
         _importProductsData = data;
         document.getElementById('import-prod-btn').disabled = false;
+      } else {
+        _importUsersData = data;
+        document.getElementById('import-user-btn').disabled = false;
       }
     } catch (e) {
       console.error(e);
@@ -487,7 +558,12 @@ function admHandleCSVImport(event, type) {
   reader.readAsText(file, 'UTF-8');
 }
 
-function admSubmitImport(type) {
+async function admSubmitImport(type) {
+  if (type === 'users') {
+    await admSubmitUserImport();
+    return;
+  }
+
   const isProg = type === 'programs';
   const data = isProg ? _importProgramsData : _importProductsData;
   if (!data || data.length === 0) {
@@ -545,4 +621,69 @@ function admSubmitImport(type) {
     console.error(e);
     Toast.show('เกิดข้อผิดพลาดขณะนำเข้าข้อมูล: ' + e.message, 'error');
   }
+}
+
+async function admSubmitUserImport() {
+  const data = _importUsersData;
+  if (!data || data.length === 0) {
+    Toast.show('ไม่มีข้อมูลสำหรับนำเข้า', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('import-user-btn');
+  const previewEl = document.getElementById('import-user-preview');
+  if (btn) btn.disabled = true;
+
+  let successCount = 0;
+  let skipped = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const username = row.username || row.Username || row['ชื่อผู้ใช้'] || '';
+    const password = row.password || row.Password || row['รหัสผ่าน'] || '';
+    const name = row.name || row.Name || row['ชื่อ-สกุล'] || '';
+    const nickname = row.nickname || row.Nickname || row['ชื่อเล่น'] || name.split(' ')[0] || '';
+    const role = row.role || row.Role || row['สิทธิ์'] || 'Frontdesk';
+    const branch = row.branch || row.Branch || row['สาขา'] || '';
+    const position = row.position || row.Position || row['ตำแหน่ง'] || '';
+
+    if (!username || !password || !name || !branch) {
+      skipped.push(`แถวที่ ${i + 2}: ข้อมูลไม่ครบ`);
+      continue;
+    }
+
+    if (previewEl) {
+      previewEl.innerHTML = `<div style="font-size:0.8rem;color:var(--gray-500);">กำลังนำเข้า... ${i + 1}/${data.length}</div>`;
+    }
+
+    try {
+      await DB.createUserSupabase({ username, password, name, nickname, role, branch, position });
+      successCount++;
+    } catch (e) {
+      if (e.message === 'USERNAME_EXISTS') {
+        skipped.push(`${username}: username ซ้ำ (ข้าม)`);
+      } else {
+        skipped.push(`${username}: ${e.message}`);
+      }
+    }
+  }
+
+  if (btn) btn.disabled = false;
+
+  Toast.show(`นำเข้าพนักงานสำเร็จ ${successCount}/${data.length} คน`, successCount > 0 ? 'success' : 'error');
+
+  if (previewEl) {
+    previewEl.innerHTML = `
+      <div class="alert-box ${successCount === data.length ? 'alert-success' : 'alert-warning'}" style="padding:8px 12px;font-size:0.78rem;border-radius:var(--radius-sm);">
+        นำเข้าสำเร็จ ${successCount} คน ${skipped.length > 0 ? `— ข้าม ${skipped.length} รายการ` : ''}
+      </div>
+      ${skipped.length > 0 ? `<div style="font-size:0.72rem;color:var(--gray-500);margin-top:6px;max-height:100px;overflow:auto;">${skipped.join('<br>')}</div>` : ''}
+    `;
+  }
+
+  DB.saveAuditLog({
+    action: 'IMPORT_USERS',
+    target: `นำเข้าพนักงาน ${successCount} คน`,
+    note: `นำเข้าผ่านไฟล์ CSV โดยแอดมิน`
+  });
 }
