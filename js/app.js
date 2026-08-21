@@ -371,6 +371,80 @@ function closeModal(event) {
   closeModalDirect();
 }
 
+function openChangePasswordModal() {
+  openModal(`
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h3 class="modal-title"><i data-lucide="key-round"></i> เปลี่ยนรหัสผ่าน</h3>
+        <button class="modal-close btn btn-ghost btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">รหัสผ่านเดิม</label>
+          <input id="cp-old" type="password" class="form-input" placeholder="รหัสผ่านปัจจุบัน" />
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">รหัสผ่านใหม่</label>
+          <input id="cp-new" type="password" class="form-input" placeholder="อย่างน้อย 4 ตัวอักษร" />
+        </div>
+        <div class="form-group" style="margin-bottom:4px;">
+          <label class="form-label">ยืนยันรหัสผ่านใหม่</label>
+          <input id="cp-confirm" type="password" class="form-input" placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง" />
+        </div>
+        <div id="cp-error" class="hidden" style="color:var(--red-600,#dc2626);font-size:0.8rem;margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModalDirect()">ยกเลิก</button>
+        <button class="btn btn-primary" id="cp-submit-btn" onclick="submitChangePassword()">บันทึกรหัสผ่านใหม่</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitChangePassword() {
+  const oldPass = document.getElementById('cp-old').value;
+  const newPass = document.getElementById('cp-new').value;
+  const confirmPass = document.getElementById('cp-confirm').value;
+  const errorEl = document.getElementById('cp-error');
+  const btn = document.getElementById('cp-submit-btn');
+
+  errorEl.classList.add('hidden');
+
+  if (!oldPass || !newPass || !confirmPass) {
+    errorEl.textContent = 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  if (newPass.length < 4) {
+    errorEl.textContent = 'รหัสผ่านใหม่ควรมีอย่างน้อย 4 ตัวอักษร';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  if (newPass !== confirmPass) {
+    errorEl.textContent = 'รหัสผ่านใหม่ที่กรอก 2 ช่องไม่ตรงกัน';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  try {
+    const ok = await DB.changeOwnPasswordSupabase(currentUser.username, oldPass, newPass);
+    if (ok) {
+      Toast.show('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว', 'success');
+      closeModalDirect();
+    } else {
+      errorEl.textContent = 'รหัสผ่านเดิมไม่ถูกต้อง';
+      errorEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    console.error(e);
+    errorEl.textContent = 'เกิดข้อผิดพลาด: ' + e.message;
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function closeModalDirect() {
   const overlay = document.getElementById('modal-overlay');
   const wrap = document.getElementById('modal-wrap');
