@@ -164,6 +164,19 @@ const DB = {
     const { error } = await sb.rpc('save_stock_log_image', { p_log_id: logId, p_data: base64Data });
     if (error) console.error('saveStockLogImageSupabase error:', error);
   },
+
+  // ── OPD ผ่านฐานข้อมูลกลาง (Supabase) ────────────────────────
+  async getProgramsSupabase() {
+    const { data, error } = await sb.rpc('get_active_programs');
+    if (error) { console.error('getProgramsSupabase error:', error); return []; }
+    return data || [];
+  },
+
+  async createOpdBillSupabase(payload) {
+    const { data, error } = await sb.rpc('create_opd_bill', { p_payload: payload });
+    if (error) throw error;
+    return data; // bill id
+  },
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
