@@ -177,6 +177,42 @@ const DB = {
     if (error) throw error;
     return data; // bill id
   },
+
+  // ── Audit ผ่านฐานข้อมูลกลาง (Supabase) ──────────────────────
+  async getPendingBillsSupabase() {
+    const { data, error } = await sb.rpc('get_pending_bills');
+    if (error) { console.error('getPendingBillsSupabase error:', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id, hn: r.hn, customerName: r.customer_name, date: r.bill_date,
+      branch: r.branch_name, createdByName: r.created_by_name, status: r.status
+    }));
+  },
+
+  async getBillDetailSupabase(billId) {
+    const { data, error } = await sb.rpc('get_bill_detail', { p_bill_id: billId });
+    if (error) { console.error('getBillDetailSupabase error:', error); return null; }
+    return data;
+  },
+
+  async auditBillSupabase(billId, status, auditBy, note) {
+    const { error } = await sb.rpc('audit_bill', { p_bill_id: billId, p_status: status, p_audit_by: auditBy, p_note: note || null });
+    if (error) throw error;
+  },
+
+  async getPendingStockLogsSupabase() {
+    const { data, error } = await sb.rpc('get_pending_stock_logs');
+    if (error) { console.error('getPendingStockLogsSupabase error:', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id, date: r.log_date, branch: r.branch_name, type: r.move_type,
+      productCode: r.product_code, productName: r.product_name, qty: r.qty, unit: r.unit,
+      createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note
+    }));
+  },
+
+  async auditStockLogSupabase(logId, status, auditBy, note) {
+    const { error } = await sb.rpc('audit_stock_log', { p_log_id: logId, p_status: status, p_audit_by: auditBy, p_note: note || null });
+    if (error) throw error;
+  },
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
