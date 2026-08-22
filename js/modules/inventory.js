@@ -6,17 +6,16 @@
 let invTab = 'out';
 let invRows = [];
 let invPhotos = [];
+let invProductsCache = [];
 
-function renderInventory(container, defaultTab) {
+async function renderInventory(container, defaultTab) {
   invTab = defaultTab || 'out';
   invRows = [{ id: 'r_' + Date.now(), productCode: '', productName: '', qty: 1, unit: '', note: '' }];
   invPhotos = [];
 
-  container.innerHTML = `
-  <div>
-    <div id="inv-body"></div>
-  </div>`;
+  container.innerHTML = `<div><div id="inv-body">กำลังโหลดรายการสินค้า...</div></div>`;
 
+  invProductsCache = await DB.getProductsSupabase();
   invRender();
   lucide.createIcons();
 }
@@ -44,7 +43,7 @@ function invRender() {
     transfer: { title: 'เบิกโอนข้ามสาขา', color: 'purple', icon: 'truck', desc: 'โอนสต๊อกให้สาขาอื่น กรุณาแนบรูปภาพใบเบิกโอน' },
   };
   const info = tabInfo[invTab];
-  const branches = ['พิษณุโลก','กำแพงเพชร','แม่สอด'].filter(b => b !== currentBranch);
+  const branches = ['พิษณุโลก','กำแพงเพชร','แม่สอด','นครสวรรค์'].filter(b => b !== currentBranch);
 
   body.innerHTML = `
   <div class="glass-card bg-pastel-${info.color}" style="margin-bottom:16px;border-top:3px solid var(--${info.color}-500); padding:20px;">
@@ -107,7 +106,7 @@ function invRender() {
 function invRenderRows() {
   const list = document.getElementById('inv-rows-list');
   if (!list) return;
-  const products = DB.getProducts();
+  const products = invProductsCache;
   list.innerHTML = invRows.map((row, i) => {
     const prodUID = 'invprod-' + row.id;
     window['ssInvProd_' + row.id] = function(code) { invRowProduct(row.id, code); };
@@ -147,7 +146,7 @@ function invAddRow() {
 function invRowProduct(id, code) {
   const r = invRows.find(x => x.id === id);
   if (!r) return;
-  const p = DB.getProductByCode(code);
+  const p = invProductsCache.find(x => x.code === code);
   r.productCode = code;
   r.productName = p ? p.name : '';
   r.unit = p ? p.unit : '';
@@ -180,7 +179,7 @@ function invRenderPhotos() {
 
 function invRemovePhoto(id) { invPhotos = invPhotos.filter(p => p.id !== id); invRenderPhotos(); }
 
-function invSubmit() {
+async function invSubmit() {
   const date = document.getElementById('inv-date')?.value;
   if (!date) { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
 
@@ -189,33 +188,49 @@ function invSubmit() {
 
   if (invPhotos.length === 0) { Toast.show('กรุณาแนบภาพถ่ายอย่างน้อย 1 ภาพ', 'error'); return; }
 
-  let savedLogIds = [];
+  let toBranch = null;
   if (invTab === 'transfer') {
-    const toBranch = document.getElementById('inv-to-branch')?.value;
+    toBranch = document.getElementById('inv-to-branch')?.value;
     if (!toBranch) { Toast.show('กรุณาเลือกสาขาปลายทาง', 'error'); return; }
-    validRows.forEach(r => {
-      const log = DB.saveStockLog({ date, branch: currentBranch, type: 'TRANSFER', direction: 'OUT', productCode: r.productCode, productName: r.productName, qty: r.qty, unit: r.unit, toBranch, note: r.note || `โอนไปสาขา ${toBranch}`, createdBy: currentUser.id, auditStatus: 'รอตรวจสอบ' });
-      savedLogIds.push(log.id);
-    });
-  } else if (invTab === 'in') {
-    validRows.forEach(r => {
-      const log = DB.saveStockLog({ date, branch: currentBranch, type: 'IN', direction: 'IN', productCode: r.productCode, productName: r.productName, qty: r.qty, unit: r.unit, note: r.note || 'รับเข้าสต๊อก', createdBy: currentUser.id, auditStatus: 'รอตรวจสอบ' });
-      savedLogIds.push(log.id);
-    });
-  } else {
-    validRows.forEach(r => {
-      const log = DB.saveStockLog({ date, branch: currentBranch, type: 'OUT', direction: 'OUT', productCode: r.productCode, productName: r.productName, qty: r.qty, unit: r.unit, note: r.note || 'เบิกใช้', createdBy: currentUser.id, auditStatus: 'รอตรวจสอบ' });
-      savedLogIds.push(log.id);
-    });
   }
 
-  // Save photos to the first log in the batch (they represent the whole transaction)
-  if (DB.saveStockLogImage && savedLogIds.length > 0) {
-    invPhotos.forEach(p => DB.saveStockLogImage({ logId: savedLogIds[0], data: p.data }));
-  }
+  const directionByTab = { out: 'OUT', in: 'IN', transfer: 'OUT' };
+  const typeByTab = { out: 'OUT', in: 'IN', transfer: 'TRANSFER' };
+  const defaultNoteByTab = { out: 'เบิกใช้', in: 'รับเข้าสต๊อก', transfer: `โอนไปสาขา ${toBranch}` };
 
-  Toast.show(`บันทึกสำเร็จ — ${validRows.length} รายการ ⏳ รอ Audit อนุมัติ`, 'success', 4000);
-  invReset();
+  const submitBtn = document.querySelector(`.btn-${{out:'orange',in:'blue',transfer:'purple'}[invTab]}`);
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    let firstLogId = null;
+    for (const r of validRows) {
+      const logId = await DB.saveStockLogSupabase({
+        branch: currentBranch,
+        toBranch,
+        productCode: r.productCode,
+        direction: directionByTab[invTab],
+        type: typeByTab[invTab],
+        qty: r.qty,
+        note: r.note || defaultNoteByTab[invTab],
+        createdBy: currentUser.id
+      });
+      if (!firstLogId) firstLogId = logId;
+    }
+
+    if (firstLogId) {
+      for (const p of invPhotos) {
+        await DB.saveStockLogImageSupabase(firstLogId, p.data);
+      }
+    }
+
+    Toast.show(`บันทึกสำเร็จ — ${validRows.length} รายการ ⏳ รอ Audit อนุมัติ`, 'success', 4000);
+    invReset();
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาดขณะบันทึก: ' + e.message, 'error');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
 }
 
 function invReset() {
