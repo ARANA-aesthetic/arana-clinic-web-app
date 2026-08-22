@@ -134,7 +134,7 @@ const DB = {
 
   // ── สต็อก ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────────
   async getProductsSupabase() {
-    const { data, error } = await sb.from('products').select('code, name, unit, category').eq('is_active', true).order('name');
+    const { data, error } = await sb.rpc('get_active_products');
     if (error) { console.error('getProductsSupabase error:', error); return []; }
     return data || [];
   },
