@@ -48,13 +48,11 @@ function audRender() {
 }
 
 // ── TAB 1: OPD Audit ─────────────────────────────────────
-function audRenderOPD(body) {
-  let bills = DB.getBills().filter(b => b.status === 'รอตรวจสอบ');
-  const pendingEdit = DB.getEditRequests ? DB.getEditRequests().filter(e => e.status === 'รอการอนุมัติ') : [];
+async function audRenderOPD(body) {
+  body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
+  const bills = await DB.getPendingBillsSupabase();
 
   body.innerHTML = `
-  
-
   <div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
     <span style="font-size:0.84rem;color:var(--gray-600);">รอตรวจสอบ</span>
     <span class="badge badge-pending" style="font-size:1rem;padding:4px 14px;">${bills.length} บิล</span>
@@ -78,14 +76,13 @@ function audRenderOPD(body) {
           </tr>
         </thead>
         <tbody id="aud-opd-tbody">
-          ${pendingEdit.length ? pendingEdit.map(r => audEditRequestRow(r)).join('') : ''}
-          ${bills.length ? bills.map(b => audOPDRow(b)).join('') : ''}
-          ${(!bills.length && !pendingEdit.length) ? `
-          <tr><td colspan="7"><div class="empty-state" style="padding:24px;"><i data-lucide="check-circle"></i><h4>ไม่มีบิลรอตรวจสอบ</h4></div></td></tr>` : ''}
+          ${bills.length ? bills.map(b => audOPDRow(b)).join('') : `
+          <tr><td colspan="7"><div class="empty-state" style="padding:24px;"><i data-lucide="check-circle"></i><h4>ไม่มีบิลรอตรวจสอบ</h4></div></td></tr>`}
         </tbody>
       </table>
     </div>
   </div>`;
+  window._auditPendingBills = bills;
   lucide.createIcons();
 }
 
@@ -93,12 +90,12 @@ function audOPDRow(b) {
   return `<tr id="aud-row-${b.id}" class="clickable" onclick="audOpenBill('${b.id}')">
     <td class="nowrap">${formatDate(b.date)}</td>
     <td><code style="font-size:0.75rem;background:var(--gray-100);padding:2px 5px;border-radius:4px;">${b.hn||'-'}</code></td>
-    <td style="font-weight:600;">${b.customerName||'-'} ${b.parentBillId ? '<span class="badge badge-product" style="font-size:0.65rem;padding:2px 4px;margin-left:4px;">บิลร่วม</span>' : ''}</td>
+    <td style="font-weight:600;">${b.customerName||'-'}</td>
     <td>${b.branch||'-'}</td>
     <td style="font-size:0.8rem;">
       <div style="display:flex;align-items:center;gap:4px;">
         <i data-lucide="user" style="width:14px;height:14px;color:var(--gray-400);"></i>
-        <span>${getUserName(b.createdBy)}</span>
+        <span>${b.createdByName||'-'}</span>
       </div>
     </td>
     <td id="aud-status-${b.id}">${statusBadge(b.status)}</td>
@@ -111,26 +108,27 @@ function audOPDRow(b) {
 function audFilterOPD(q) {
   const tbody = document.getElementById('aud-opd-tbody');
   if (!tbody) return;
-  let bills = DB.getBills().filter(b => b.status === 'รอตรวจสอบ');
+  let bills = window._auditPendingBills || [];
   if (q) bills = bills.filter(b => b.hn?.toLowerCase().includes(q.toLowerCase()) || b.customerName?.toLowerCase().includes(q.toLowerCase()));
   tbody.innerHTML = bills.length ? bills.map(b => audOPDRow(b)).join('') :
     `<tr><td colspan="7"><div class="empty-state" style="padding:20px;"><i data-lucide="search"></i><h4>ไม่พบ</h4></div></td></tr>`;
   lucide.createIcons();
 }
 
-function audQuickAction(billId, status, note) {
-  if (DB.auditBill) {
-    DB.auditBill(billId, status === 'อนุมัติแล้ว' ? 'approve' : 'reject', currentUser.id, note || '');
-  } else if (DB.updateBillStatus) {
-    DB.updateBillStatus(billId, status, currentUser.id, note || '');
+async function audQuickAction(billId, status, note) {
+  try {
+    await DB.auditBillSupabase(billId, status, currentUser.id, note || '');
+    const row = document.getElementById(`aud-row-${billId}`);
+    const statusEl = document.getElementById(`aud-status-${billId}`);
+    if (statusEl) statusEl.innerHTML = statusBadge(status);
+    if (row) { row.style.opacity = '0.5'; setTimeout(() => row.remove(), 400); }
+    Toast.show(`${status === 'อนุมัติแล้ว' ? '✅ อนุมัติ' : '❌ ตีกลับ'}บิลเรียบร้อย`, status === 'อนุมัติแล้ว' ? 'success' : 'error');
+    closeModalDirect();
+    audRender();
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
   }
-  const row = document.getElementById(`aud-row-${billId}`);
-  const statusEl = document.getElementById(`aud-status-${billId}`);
-  if (statusEl) statusEl.innerHTML = statusBadge(status);
-  if (row) { row.style.opacity = '0.5'; setTimeout(() => row.remove(), 400); }
-  Toast.show(`${status === 'อนุมัติแล้ว' ? '✅ อนุมัติ' : '❌ ตีกลับ'}บิลเรียบร้อย`, status === 'อนุมัติแล้ว' ? 'success' : 'error');
-  closeModalDirect();
-  audRender(); // refresh numbers
 }
 
 function audQuickReject(billId) {
@@ -160,21 +158,23 @@ function audDoReject(billId) {
   audQuickAction(billId, 'ตีกลับ', note);
 }
 
-function audOpenBill(billId) {
-  const bill = DB.getBillById(billId);
-  if (!bill) return;
-  const images = DB.getBillImages ? DB.getBillImages(billId) : [];
-  const services = DB.getBillServices(billId);
-  const sales = DB.getBillSales(billId);
-  const supplies = DB.getBillSupplies(billId);
+async function audOpenBill(billId) {
+  const detail = await DB.getBillDetailSupabase(billId);
+  if (!detail || !detail.bill) { Toast.show('ไม่พบข้อมูลบิลนี้', 'error'); return; }
+
+  const bill = detail.bill;
+  const images = detail.images || [];
+  const services = detail.services || [];
+  const sales = detail.sales || [];
+  const supplies = detail.supplies || [];
 
   let imgIdx = 0;
-  const imgSrc = images.length ? images[imgIdx]?.data || '' : '';
+  const imgSrc = images.length ? images[imgIdx]?.file_url || '' : '';
 
   openModal(`
   <div class="modal" style="width:1400px; max-width:98vw; height:90vh; max-height:900px; display:flex; flex-direction:column; border-radius:var(--radius-lg); box-shadow:var(--shadow-xl);">
     <div class="modal-header" style="flex-shrink:0; background:var(--white); border-bottom:1px solid var(--gray-200); z-index:10;">
-      <h3 class="modal-title"><i data-lucide="file-text"></i>${bill.hn||''} — ${bill.customerName} ${bill.parentBillId ? '<span class="badge badge-product" style="font-size:0.65rem;padding:2px 4px;margin-left:8px;vertical-align:middle;">บิลร่วม</span>' : ''}</h3>
+      <h3 class="modal-title"><i data-lucide="file-text"></i>${bill.hn||''} — ${bill.customer_name}</h3>
       <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-wrap:wrap; background:var(--gray-100);">
@@ -195,9 +195,6 @@ function audOpenBill(billId) {
             <button class="btn btn-ghost btn-sm" style="color:white;" onclick="audNavImg(1,${images.length})"><i data-lucide="chevron-right"></i></button>` : ''}
           </div>
         </div>
-        </div>
-        <div style="background:var(--cream);padding:14px 16px;border-top:1px solid var(--gray-200);display:flex;justify-content:center;">
-          <span style="font-size:0.85rem;color:var(--gray-600);"><i data-lucide="info" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i>สามารถลากรูปหรือซูมดูรายละเอียดได้</span>
         </div>` : `
         <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--gray-400);flex-direction:column;gap:12px;background:var(--gray-50);">
           <i data-lucide="image-off" style="width:48px;height:48px;"></i><p>ไม่มีภาพ OPD</p>
@@ -208,14 +205,14 @@ function audOpenBill(billId) {
         <div class="split-right-body" style="flex:1;overflow-y:auto;padding:20px;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;background:var(--gray-50);padding:12px;border-radius:var(--radius-md);border:1px solid var(--gray-100);">
             <div><div style="font-size:0.75rem;color:var(--gray-500);">HN</div><div style="font-weight:700;">${bill.hn||'-'}</div></div>
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">วันที่</div><div style="font-weight:600;">${formatDate(bill.date)}</div></div>
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">ลูกค้า</div><div style="font-weight:700;">${bill.customerName}</div></div>
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">สาขา</div><div style="font-weight:600;">${bill.branch}</div></div>
+            <div><div style="font-size:0.75rem;color:var(--gray-500);">วันที่</div><div style="font-weight:600;">${formatDate(bill.bill_date)}</div></div>
+            <div><div style="font-size:0.75rem;color:var(--gray-500);">ลูกค้า</div><div style="font-weight:700;">${bill.customer_name}</div></div>
+            <div><div style="font-size:0.75rem;color:var(--gray-500);">สาขา</div><div style="font-weight:600;">${bill.branch_name}</div></div>
             <div style="grid-column:span 2;">
               <div style="font-size:0.75rem;color:var(--gray-500);">ผู้บันทึก</div>
               <div style="font-weight:700;display:flex;align-items:center;gap:6px;">
                 <i data-lucide="user" style="width:16px;height:16px;color:var(--burgundy-500);"></i>
-                ${getUserName(bill.createdBy)}
+                ${bill.created_by_name||'-'}
               </div>
             </div>
           </div>
@@ -224,12 +221,11 @@ function audOpenBill(billId) {
           <div class="section-header" style="margin-bottom:10px;"><span class="section-title">ค่ามือ</span></div>
           ${services.map(s => `
           <div class="audit-item" style="padding:10px;border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--white);">
-            <div style="font-weight:600;margin-bottom:4px;font-size:1.1rem;color:var(--burgundy-800);">${(DB.getProgramByCode?DB.getProgramByCode(s.programCode)?.name:null)||s.programName||s.programCode||'-'}</div>
+            <div style="font-weight:600;margin-bottom:4px;font-size:1.1rem;color:var(--burgundy-800);">${s.program_name||s.program_code||'-'}</div>
             <div style="font-size:0.82rem;color:var(--gray-600);display:flex;justify-content:space-between;">
-              <span></span>
+              <span>ราคา ฿${formatCurrency(s.price)}</span>
               <span style="font-weight:700;color:var(--burgundy-700);">ค่ามือ ฿${formatCurrency(s.commission)}</span>
             </div>
-            <div style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">ลงโดย: ${getUserName(s.createdBy)}</div>
           </div>`).join('')}` : ''}
 
           ${sales.length ? `
@@ -237,17 +233,24 @@ function audOpenBill(billId) {
           ${sales.map(s => `
           <div class="audit-item" style="padding:10px;border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--white);">
             <div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-              ${typeBadge(s.type)}
-              <span style="font-weight:600;">${s.newProgram||'-'}</span>
+              ${typeBadge(s.sale_type)}
+              <span style="font-weight:600;">${s.new_program_name||'-'}</span>
             </div>
-            ${s.oldProgram ? `<div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:6px;padding:6px;background:var(--gray-50);border-radius:4px;">
-              โปรแกรมเดิม: <strong>${s.oldProgram}</strong> (฿${formatCurrency(s.oldPrice)}) <i data-lucide="arrow-right" style="width:12px;display:inline-block;vertical-align:middle;margin:0 4px;"></i> อัพเป็น: <strong>${s.newProgram}</strong> (฿${formatCurrency(s.newPrice)})
+            ${s.old_program_name ? `<div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:6px;padding:6px;background:var(--gray-50);border-radius:4px;">
+              โปรแกรมเดิม: <strong>${s.old_program_name}</strong>
             </div>` : ''}
             <div style="font-size:0.82rem;color:var(--gray-600);display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span>ยอดเต็ม/ส่วนต่าง: ฿${formatCurrency(s.commissionBase)} × ${s.commissionPct}%</span>
-              <span style="font-weight:700;color:var(--burgundy-700);">คอม: ฿${formatCurrency(s.commissionAmt)}</span>
+              <span>ยอดชำระ: ฿${formatCurrency(s.amount_paid)}</span>
+              <span style="font-weight:700;color:var(--burgundy-700);">คอม: ฿${formatCurrency(s.commission_amt)}</span>
             </div>
-            <div style="font-size:0.75rem;color:var(--gray-400);">ลงโดย: ${getUserName(s.createdBy)}</div>
+          </div>`).join('')}` : ''}
+
+          ${supplies.length ? `
+          <div class="section-header" style="margin:16px 0 10px;"><span class="section-title">วัสดุที่เบิกใช้</span></div>
+          ${supplies.map(s => `
+          <div class="audit-item" style="padding:10px;border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--white);display:flex;justify-content:space-between;">
+            <span>${s.product_name||'-'}</span>
+            <span style="font-weight:700;">${s.qty} ${s.unit||''}</span>
           </div>`).join('')}` : ''}
         </div>
         <div class="split-right-footer" style="padding:16px;border-top:1px solid var(--gray-200);display:flex;gap:12px;background:var(--white);">
@@ -263,14 +266,13 @@ function audOpenBill(billId) {
   </div>`);
 
   document.querySelector('.modal-overlay').onclick = null;
-  window._audImages = images;
+  window._audImages = images.map(im => ({ data: im.file_url }));
   window._audImgIdx = 0;
   window._audScale = 1;
   window._audPanX = 0;
   window._audPanY = 0;
   lucide.createIcons();
 
-  // Attach Drag/Pan Events
   setTimeout(() => {
     const wrap = document.getElementById('audImgWrap');
     if (!wrap) return;
@@ -510,8 +512,9 @@ function audDoRejectEdit(reqId, billId) {
 }
 
 // ── TAB 2: Stock Audit ────────────────────────────────────
-function audRenderStock(body) {
-  const pending = DB.getStockLogs({ auditStatus: 'รอตรวจสอบ' }); // Removed branch filter to see all branches for Audit
+async function audRenderStock(body) {
+  body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
+  const pending = await DB.getPendingStockLogsSupabase();
   body.innerHTML = `
   <div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
     <span style="font-size:0.84rem;color:var(--gray-600);">รายการสต๊อกรอตรวจสอบ (ทุกสาขา)</span>
@@ -532,11 +535,12 @@ function audRenderStock(body) {
             <td><code style="font-size:0.75rem;background:var(--gray-100);padding:2px 5px;border-radius:4px;">${l.productCode||'-'}</code></td>
             <td style="font-weight:600;">${l.productName||'-'}</td>
             <td class="num" style="font-weight:700;color:var(--blue-700);">${l.qty} ${l.unit||''}</td>
-            <td style="font-size:0.8rem;">${getUserName(l.createdBy)}</td>
+            <td style="font-size:0.8rem;">${l.createdByName||'-'}</td>
             <td id="slog-status-${l.id}">${statusBadge(l.auditStatus)}</td>
             <td style="text-align:center;">
               <div style="display:flex;gap:4px;justify-content:center;">
-                <button class="btn btn-primary btn-sm" onclick="audOpenStockLog('${l.id}')"><i data-lucide="search"></i> ตรวจสอบ</button>
+                <button class="btn btn-success btn-sm" onclick="audStockAction('${l.id}','อนุมัติแล้ว')"><i data-lucide="check"></i> อนุมัติ</button>
+                <button class="btn btn-danger btn-sm" onclick="audStockReject('${l.id}')"><i data-lucide="x"></i> ตีกลับ</button>
               </div>
             </td>
           </tr>`).join('') : `<tr><td colspan="9"><div class="empty-state" style="padding:24px;"><i data-lucide="check-circle"></i><h4>ไม่มีรายการรอตรวจ</h4></div></td></tr>`}
@@ -545,6 +549,21 @@ function audRenderStock(body) {
     </div>
   </div>`;
   lucide.createIcons();
+}
+
+async function audStockAction(logId, status, note) {
+  try {
+    await DB.auditStockLogSupabase(logId, status, currentUser.id, note || '');
+    const row = document.getElementById(`slog-row-${logId}`);
+    const statusEl = document.getElementById(`slog-status-${logId}`);
+    if (statusEl) statusEl.innerHTML = statusBadge(status);
+    if (row) { row.style.opacity = '0.5'; setTimeout(() => row.remove(), 400); }
+    Toast.show(`${status === 'อนุมัติแล้ว' ? '✅ อนุมัติ' : '❌ ตีกลับ'}รายการสต๊อกแล้ว`, status === 'อนุมัติแล้ว' ? 'success' : 'error');
+    audRender();
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
+  }
 }
 
 function audStockReject(logId) {
@@ -574,23 +593,9 @@ function audDoStockReject(logId) {
   audStockAction(logId, 'ตีกลับ', note);
 }
 
-function audStockAction(logId, status, note) {
-  if (DB.auditStockLog) {
-    DB.auditStockLog(logId, status === 'อนุมัติแล้ว' ? 'approve' : 'reject', currentUser.id, note || '');
-  } else if (DB.updateStockLogStatus) {
-    DB.updateStockLogStatus(logId, status, currentUser.id);
-  }
-  const row = document.getElementById(`slog-row-${logId}`);
-  const statusEl = document.getElementById(`slog-status-${logId}`);
-  if (statusEl) statusEl.innerHTML = statusBadge(status);
-  if (row) { row.style.opacity = '0.5'; setTimeout(() => row.remove(), 400); }
-  Toast.show(`${status === 'อนุมัติแล้ว' ? '✅ อนุมัติ' : '❌ ตีกลับ'}รายการสต๊อกแล้ว`, status === 'อนุมัติแล้ว' ? 'success' : 'error');
-  audRender();
-}
-
 function audOpenStockLog(logId) {
-  const log = DB.getStockLogs().find(l => l.id === logId);
-  if (!log) return;
+  Toast.show('หน้าต่างรายละเอียดนี้กำลังปรับปรุง กรุณาใช้ปุ่มอนุมัติ/ตีกลับจากตารางแทนไปก่อนนะคะ', 'error', 5000);
+  return;
   const images = DB.getStockLogImages ? DB.getStockLogImages(logId) : [];
 
   let imgIdx = 0;
