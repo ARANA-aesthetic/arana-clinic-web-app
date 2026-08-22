@@ -133,6 +133,8 @@ let opdState = {
   sales: [],
   supplies: [],
 };
+let opdProgramsCache = [];
+let opdProductsCache = [];
 
 const COM_PCTS = [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5];
 const PAY_TYPES = ['จ่ายเต็ม', 'มัดจำ', 'แบ่งชำระ', 'จ่ายเพิ่มจากมัดจำ'];
@@ -144,13 +146,19 @@ const INSTALLMENTS = [
 ];
 
 // ── Main Render ────────────────────────────────────────────
-function renderOPD(container) {
+async function renderOPD(container) {
   if (window._editingOpdState) {
     opdState = window._editingOpdState;
     window._editingOpdState = null;
   } else {
     opdState = { billId: null, isShared: false, sharedBillId: null, sharedBillServices: [], photos: [], services: [], sales: [], supplies: [] };
   }
+
+  container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูล...</div>`;
+  [opdProgramsCache, opdProductsCache] = await Promise.all([
+    DB.getProgramsSupabase(),
+    DB.getProductsSupabase()
+  ]);
 
   container.innerHTML = `
   <div class="opd-form" id="opd-form">
@@ -161,9 +169,9 @@ function renderOPD(container) {
           <input type="radio" name="bill-mode" value="new" checked onchange="opdSetMode('new')" style="accent-color:var(--burgundy-600);width:16px;height:16px;" />
           <span>สร้างบิลใหม่</span>
         </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">
-          <input type="radio" name="bill-mode" value="shared" onchange="opdSetMode('shared')" style="accent-color:var(--burgundy-600);width:16px;height:16px;" />
-          <span>ลงบิลร่วม (บิลของเพื่อน)</span>
+        <label style="display:flex;align-items:center;gap:8px;cursor:not-allowed;font-size:0.9rem;font-weight:600;color:var(--gray-400);" title="ฟีเจอร์นี้กำลังปรับปรุงให้ใช้กับฐานข้อมูลใหม่ เร็วๆ นี้">
+          <input type="radio" name="bill-mode" value="shared" disabled style="width:16px;height:16px;" />
+          <span>ลงบิลร่วม (บิลของเพื่อน) — เร็วๆ นี้</span>
         </label>
       </div>
 
@@ -301,9 +309,6 @@ function renderOPD(container) {
     <!-- Submit -->
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-bottom:20px;">
       <button class="btn btn-ghost" onclick="opdReset()"><i data-lucide="rotate-ccw"></i> ล้างฟอร์ม</button>
-      <button class="btn btn-secondary" onclick="opdSaveDraft()" id="opd-draft-btn">
-        <i data-lucide="inbox"></i> บันทึกร่าง
-      </button>
       <button class="btn btn-primary" onclick="opdSubmit()" id="opd-submit-btn">
         <i data-lucide="save"></i> บันทึก OPD
       </button>
@@ -408,7 +413,7 @@ function opdAddService() {
 function opdRenderServices() {
   const container = document.getElementById('services-list');
   if (!container) return;
-  const programs = DB.getPrograms().map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
+  const programs = opdProgramsCache.map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
   
   container.innerHTML = opdState.services.map((s) => {
     const uid = 'svcprog-' + s.id;
@@ -453,7 +458,7 @@ function opdSvcCommInput(id, val) {
 function opdSvcProgram(id, code) {
   const s = opdState.services.find(x => x.id === id);
   if (!s) return;
-  const p = DB.getProgramByCode(code);
+  const p = opdProgramsCache.find(x => x.code === code);
   s.programCode = code;
   s.programName = p ? p.name : '';
   s.price = p ? p.price : 0;
@@ -502,7 +507,7 @@ function opdBuildSaleCard(s) {
   const isUpsell  = s.type === 'upsell';
   const labels    = { upsell:'อัพเซลส์', crosssell:'ขายเพิ่ม (Cross-sell)', product:'ขายสินค้า 5%' };
   const badgeColor = { upsell:'hsl(270,55%,42%)', crosssell:'hsl(145,55%,35%)', product:'hsl(38,80%,40%)' };
-  const programs  = DB.getPrograms().map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
+  const programs  = opdProgramsCache.map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
   const needInstallment = (s.payType === 'แบ่งชำระ');
   const needAmount = (s.payType !== 'จ่ายเต็ม');
 
@@ -528,7 +533,7 @@ function opdBuildSaleCard(s) {
   
   oldProgItems.push({ isHeader: true, name: 'โปรแกรมทั้งหมด' });
   oldProgItems.push({ code: 'manual', name: '— ระบุใหม่เอง —' });
-  DB.getPrograms().forEach(p => {
+  opdProgramsCache.forEach(p => {
     oldProgItems.push({ code: p.code, name: p.name });
   });
 
@@ -665,7 +670,7 @@ function opdSaleTextInput(id, key, val) {
 function opdSaleNewProgram(id, code) {
   const s = opdState.sales.find(x => x.id === id);
   if (!s) return;
-  const p = DB.getProgramByCode(code);
+  const p = opdProgramsCache.find(x => x.code === code);
   s.newProgram = code;
   s.newPrice = p ? p.price : 0;
   if (s.payType === 'จ่ายเต็ม') s.amountPaid = s.newPrice;
@@ -691,7 +696,7 @@ function opdUpsellOldSelect(id, val) {
     s.oldProgramManual = false; s.oldProgram = val; s.oldPrice = svc ? (svc.price || 0) : 0;
   } else {
     s.oldProgramManual = false; s.oldProgram = val;
-    const p = DB.getProgramByCode(val);
+    const p = opdProgramsCache.find(x => x.code === val);
     s.oldPrice = p ? p.price : 0;
   }
 
@@ -781,7 +786,7 @@ function opdAddSupply() {
 function opdRenderSupplies() {
   const container = document.getElementById('supplies-list');
   if (!container) return;
-  const products = DB.getProducts().map(p => ({ code: p.code, name: p.name, extra: p.unit }));
+  const products = opdProductsCache.map(p => ({ code: p.code, name: p.name, extra: p.unit }));
   
   container.innerHTML = opdState.supplies.map(s => {
     const uid = 'supprod-' + s.id;
@@ -814,7 +819,7 @@ function opdRenderSupplies() {
 function opdSupplyProduct(id, code) {
   const s = opdState.supplies.find(x => x.id === id);
   if (!s) return;
-  const p = DB.getProductByCode(code);
+  const p = opdProductsCache.find(x => x.code === code);
   s.productCode = code;
   s.productName = p ? p.name : '';
   s.unit = p ? p.unit : '';
@@ -894,29 +899,26 @@ function opdRemovePhoto(id) {
 }
 
 // ── Submit ─────────────────────────────────────────────────
-function opdSubmit() {
+async function opdSubmit() {
   const btn = document.getElementById('opd-submit-btn');
-  let billId, hn, customerName, date, branch;
 
   if (opdState.isShared) {
-    if (!opdState.sharedBillId) { Toast.show('กรุณาเลือกบิลที่ต้องการลงร่วม', 'error'); return; }
-    const oldBill = DB.getBillById(opdState.sharedBillId);
-    hn = oldBill.hn; customerName = oldBill.customerName; date = oldBill.date; branch = oldBill.branch;
-  } else {
-    hn           = document.getElementById('opd-hn').value.trim();
-    customerName = document.getElementById('opd-customer').value.trim();
-    date         = document.getElementById('opd-date').value;
-    branch       = currentBranch;
-    if (!hn)           { Toast.show('กรุณากรอก HN', 'error'); return; }
-    if (!customerName) { Toast.show('กรุณากรอกชื่อลูกค้า', 'error'); return; }
-    if (!date)         { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
+    Toast.show('โหมด "ลงบิลร่วม" ยังไม่พร้อมใช้งานตอนนี้ กรุณาใช้ "สร้างบิลใหม่" ไปก่อนนะคะ', 'error', 5000);
+    return;
   }
+
+  const hn           = document.getElementById('opd-hn').value.trim();
+  const customerName = document.getElementById('opd-customer').value.trim();
+  const date         = document.getElementById('opd-date').value;
+  const branch       = currentBranch;
+  if (!hn)           { Toast.show('กรุณากรอก HN', 'error'); return; }
+  if (!customerName) { Toast.show('กรุณากรอกชื่อลูกค้า', 'error'); return; }
+  if (!date)         { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
 
   if (opdState.services.length === 0 && opdState.sales.length === 0) {
     Toast.show('กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', 'error'); return;
   }
 
-  // *** NEW: Mandatory Photo ***
   if (opdState.photos.length === 0) {
     Toast.show('⚠️ กรุณาแนบรูป OPD อย่างน้อย 1 รูปก่อนบันทึก', 'error', 5000);
     const photosBody = document.getElementById('photos-body');
@@ -924,7 +926,6 @@ function opdSubmit() {
     return;
   }
 
-  // Mandatory Supply
   const hasCommission = opdState.services.some(s => (s.commission || 0) > 0);
   if (hasCommission && opdState.supplies.length === 0) {
     Toast.show('⚠️ มีรายการค่ามือ — กรุณาเพิ่มรายการเบิกยา/วัสดุอย่างน้อย 1 รายการ', 'error', 5000);
@@ -935,87 +936,33 @@ function opdSubmit() {
 
   btn.classList.add('loading'); btn.disabled = true;
 
-  setTimeout(() => {
-    if (opdState.billId && !opdState.isShared) {
-      // Editing an existing bill
-      const b = DB.getBillById(opdState.billId);
-      if (b) {
-        b.hn = hn;
-        b.customerName = customerName;
-        b.date = date;
-        b.status = 'รอตรวจสอบ';
-        b.auditNote = '';
-        DB.saveBill(b);
-      }
-      billId = opdState.billId;
+  const payload = {
+    hn, customer_name: customerName, date, branch_name: branch, created_by: currentUser.id,
+    services: opdState.services
+      .filter(s => s.programCode || s.price)
+      .map(s => ({ program_code: s.programCode, price: s.price, commission: s.commission })),
+    sales: opdState.sales
+      .filter(s => s.newProgram || s.newPrice)
+      .map(s => ({
+        type: s.type, old_program: s.oldProgram, old_price: s.oldPrice, new_program: s.newProgram,
+        amount_paid: s.amountPaid, commission_base: s.commissionBase, commission_pct: s.commissionPct, commission_amt: s.commissionAmt
+      })),
+    supplies: opdState.supplies
+      .filter(s => s.productCode)
+      .map(s => ({ product_code: s.productCode, qty: s.qty })),
+    images: opdState.photos.map(p => ({ data: p.data, name: p.name }))
+  };
 
-      // Mark old records as superseded
-      DB.getBillServices(billId).filter(s => !s.is_superseded).forEach(s => { s.is_superseded = true; DB.saveBillService(s); });
-      DB.getBillSales(billId).filter(s => !s.is_superseded).forEach(s => { s.is_superseded = true; DB.saveBillSale(s); });
-      DB.getBillSupplies(billId).filter(s => !s.is_superseded).forEach(s => { s.is_superseded = true; DB.saveBillSupply(s); });
-      
-      // Remove old images
-      if (DB.getBillImages && DB.deleteBillImage) {
-        const oldImgs = DB.getBillImages(billId);
-        oldImgs.forEach(img => DB.deleteBillImage(img.id));
-      }
-
-      // Remove old stock logs tied to this bill
-      if (DB._get && DB._set) {
-        let slogs = DB._get('stock_logs') || [];
-        slogs = slogs.filter(l => l.opdBillId !== billId);
-        DB._set('stock_logs', slogs);
-      }
-    } else {
-      // Create new bill (either completely new or a shared bill linking to a parent)
-      const payload = { hn, customerName, date, branch, createdBy: currentUser.id, status: 'รอตรวจสอบ' };
-      if (opdState.isShared) payload.parentBillId = opdState.sharedBillId;
-      const bill = DB.saveBill(payload);
-      billId = bill.id;
-    }
-
-    opdState.services.forEach(s => {
-      if (!s.programCode && !s.price) return;
-      DB.saveBillService({ billId, programCode: s.programCode, programName: s.programName, price: s.price, commission: s.commission, createdBy: currentUser.id, is_superseded: false });
-    });
-
-    opdState.sales.forEach(s => {
-      if (!s.newProgram && !s.newPrice) return;
-      DB.saveBillSale({ 
-        billId, type: s.type, 
-        oldProgram: s.oldProgram, oldPrice: s.oldPrice, 
-        newProgram: s.newProgram, newPrice: s.newPrice, 
-        payType: s.payType, installmentNo: s.installmentNo, amountPaid: s.amountPaid, 
-        commissionBase: s.commissionBase, commissionBaseManual: s.commissionBaseManual, commissionNote: s.commissionNote,
-        commissionPct: s.commissionPct, commissionAmt: s.commissionAmt, 
-        createdBy: currentUser.id, is_superseded: false 
-      });
-    });
-
-    opdState.supplies.forEach(s => {
-      if (!s.productCode) return;
-      DB.saveBillSupply({ billId, productCode: s.productCode, productName: s.productName, qty: s.qty, unit: s.unit, createdBy: currentUser.id, is_superseded: false });
-      
-      // Auto-create stock log for Stock Audit
-      DB.saveStockLog({
-        date, branch, type: 'OUT', direction: 'OUT',
-        productCode: s.productCode, productName: s.productName,
-        qty: s.qty, unit: s.unit,
-        note: `เบิกจาก OPD (HN: ${hn})`,
-        createdBy: currentUser.id,
-        auditStatus: 'รอตรวจสอบ',
-        opdBillId: billId
-      });
-    });
-
-    opdState.photos.forEach(p => {
-      DB.saveBillImage({ billId, name: p.name, data: p.data });
-    });
-
-    btn.classList.remove('loading'); btn.disabled = false;
+  try {
+    await DB.createOpdBillSupabase(payload);
     Toast.show('บันทึก OPD เรียบร้อย ✓ — รออนุมัติ', 'success', 4000);
     opdReset();
-  }, 400);
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาดขณะบันทึก: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
 }
 
 function opdSaveDraft() {
@@ -1121,6 +1068,9 @@ function opdReset() {
 
 // ── Edit Bill Mode ──────────────────────────────────────────
 function opdEditBill(billId) {
+  Toast.show('ฟีเจอร์แก้ไขบิลกำลังปรับปรุงให้ใช้กับฐานข้อมูลใหม่ ยังไม่พร้อมใช้งานตอนนี้ค่ะ', 'error', 5000);
+  return;
+  // eslint-disable-next-line no-unreachable
   const bill = DB.getBillById(billId);
   if (!bill) return;
 
