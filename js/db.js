@@ -131,6 +131,39 @@ const DB = {
     if (error) throw error;
     return data === true;
   },
+
+  // ── สต็อก ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────────
+  async getProductsSupabase() {
+    const { data, error } = await sb.from('products').select('code, name, unit, category').eq('is_active', true).order('name');
+    if (error) { console.error('getProductsSupabase error:', error); return []; }
+    return data || [];
+  },
+
+  async getBranchStockSupabase(branchName) {
+    const { data, error } = await sb.rpc('get_branch_stock', { p_branch_name: branchName });
+    if (error) { console.error('getBranchStockSupabase error:', error); return []; }
+    return data || [];
+  },
+
+  async saveStockLogSupabase({ branch, toBranch, productCode, direction, type, qty, note, createdBy }) {
+    const { data, error } = await sb.rpc('save_stock_log', {
+      p_branch_name: branch,
+      p_to_branch_name: toBranch || null,
+      p_product_code: productCode,
+      p_direction: direction,
+      p_move_type: type,
+      p_qty: qty,
+      p_note: note,
+      p_created_by: createdBy
+    });
+    if (error) throw error;
+    return data; // log id
+  },
+
+  async saveStockLogImageSupabase(logId, base64Data) {
+    const { error } = await sb.rpc('save_stock_log_image', { p_log_id: logId, p_data: base64Data });
+    if (error) console.error('saveStockLogImageSupabase error:', error);
+  },
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
